@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Violência Contra Mulheres — RS</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:  #8e1a3a;
+      --bg:      #f0f2f5;
+      --card:    #ffffff;
+      --border:  #e0e0e0;
+      --text:    #1a1a2e;
+      --muted:   #6b7280;
+      --radius:  10px;
+      --shadow:  0 2px 12px rgba(0,0,0,.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--accent);
+      color: #fff;
+      padding: 22px 32px;
+      display: flex;
+      align-items: baseline;
+      gap: 18px;
+    }
+    header h1  { font-size: 1.35rem; font-weight: 700; }
+    header span { font-size: .85rem; opacity: .8; }
+
+    nav {
+      background: #fff;
+      border-bottom: 2px solid var(--border);
+      padding: 0 32px;
+      display: flex;
+    }
+    nav button {
+      background: none;
+      border: none;
+      padding: 14px 24px;
+      font-size: .92rem;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: color .2s, border-color .2s;
+    }
+    nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+    nav button:hover  { color: var(--accent); }
+
+    main { padding: 28px 32px; max-width: 1300px; }
+
+    section { display: none; }
+    section.active { display: block; }
+
+    .grid-1 { display: grid; gap: 24px; }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+    .card-sub {
+      font-size: .78rem;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    /* chips */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: opacity .2s;
+      user-select: none;
+    }
+    .chip.off { opacity: .35; }
+    .chip-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+    /* controls */
+    .controls { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+    .controls label { font-size: .82rem; font-weight: 600; color: var(--muted); }
+    .controls select,
+    .controls input[type="text"] {
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: .85rem;
+      color: var(--text);
+      background: #fff;
+    }
+    .controls input[type="text"] { width: 260px; }
+    .controls button {
+      padding: 7px 18px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .controls button:hover { opacity: .88; }
+
+    .chart-wrap { position: relative; height: 320px; }
+
+    /* tables */
+    .table-scroll { overflow-x: auto; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    thead tr { background: var(--accent); color: #fff; }
+    thead th {
+      padding: 9px 14px;
+      text-align: right;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    thead th:first-child { text-align: left; }
+    tbody tr:nth-child(even) { background: #fafafa; }
+    tbody tr:hover { background: #fdf0f3; }
+    tbody td {
+      padding: 8px 14px;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody td:first-child { text-align: left; font-weight: 600; }
+    tfoot tr { background: #f5e0e5; font-weight: 700; }
+    tfoot td {
+      padding: 8px 14px;
+      text-align: right;
+      border-top: 2px solid var(--accent);
+    }
+    tfoot td:first-child { text-align: left; }
+
+    /* cidade placeholder */
+    .cidade-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 160px;
+      color: var(--muted);
+      font-size: .9rem;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    @media (max-width: 900px) {
+      header { padding: 16px 20px; }
+      main   { padding: 20px 16px; }
+      nav    { padding: 0 16px; }
+      .controls input[type="text"] { width: 180px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Violência Contra Mulheres — Rio Grande do Sul</h1>
+  <span>Série Temporal 2012–2026 · Fonte: SSP-RS</span>
+</header>
+
+<nav>
+  <button class="active" data-tab="graficos">Gráficos</button>
+  <button data-tab="cidades">Por Cidade</button>
+  <button data-tab="tabelas">Tabelas</button>
+</nav>
+
+<main>
+
+  <!-- ── Gráficos (estado) ──────────── -->
+  <section id="graficos" class="active">
+    <div class="grid-1">
+
+      <div class="card">
+        <div class="card-title">Série Temporal Anual</div>
+        <div class="card-sub">Total de ocorrências por tipo de crime — todos os municípios do RS</div>
+        <div class="chips" id="chips-anual"></div>
+        <div class="chart-wrap"><canvas id="chartAnual"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Série Temporal Mensal</div>
+        <div class="card-sub">Distribuição mensal para o ano selecionado</div>
+        <div class="controls">
+          <label for="selAno">Ano:</label>
+          <select id="selAno"></select>
+        </div>
+        <div class="chips" id="chips-mensal"></div>
+        <div class="chart-wrap"><canvas id="chartMensal"></canvas></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Por Cidade ─────────────────── -->
+  <section id="cidades">
+    <div class="grid-1">
+
+      <div class="card">
+        <div class="card-title">Buscar Município</div>
+        <div class="card-sub">Digite o nome do município para visualizar a série histórica</div>
+        <div class="controls">
+          <label for="inputCidade">Município:</label>
+          <input type="text" id="inputCidade" list="listaCidades"
+                 placeholder="Ex: PORTO ALEGRE" autocomplete="off">
+          <datalist id="listaCidades"></datalist>
+          <button id="btnBuscarCidade">Ver</button>
+        </div>
+        <div id="cidadePlaceholder" class="cidade-placeholder">
+          Selecione um município para exibir os gráficos
+        </div>
+      </div>
+
+      <div class="card" id="cardCidadeAnual" style="display:none">
+        <div class="card-title">Série Anual — <span id="lblCidadeAnual"></span></div>
+        <div class="card-sub">Total anual por tipo de crime</div>
+        <div class="chips" id="chips-cidade-anual"></div>
+        <div class="chart-wrap"><canvas id="chartCidadeAnual"></canvas></div>
+      </div>
+
+      <div class="card" id="cardCidadeMensal" style="display:none">
+        <div class="card-title">Série Mensal — <span id="lblCidadeMensal"></span></div>
+        <div class="card-sub">Distribuição mensal para o ano selecionado</div>
+        <div class="controls">
+          <label for="selAnoCidade">Ano:</label>
+          <select id="selAnoCidade"></select>
+        </div>
+        <div class="chips" id="chips-cidade-mensal"></div>
+        <div class="chart-wrap"><canvas id="chartCidadeMensal"></canvas></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Tabelas ────────────────────── -->
+  <section id="tabelas">
+    <div class="grid-1">
+
+      <div class="card">
+        <div class="card-title">Resumo Anual</div>
+        <div class="card-sub">Total de ocorrências por ano e tipo de crime — todos os municípios</div>
+        <div class="table-scroll" id="tabelaAnual"><div class="loading">Carregando…</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Detalhamento Mensal</div>
+        <div class="card-sub">Ocorrências mês a mês para o ano selecionado</div>
+        <div class="controls">
+          <label for="selAnoTab">Ano:</label>
+          <select id="selAnoTab"></select>
+        </div>
+        <div class="table-scroll" id="tabelaMensal"><div class="loading">Carregando…</div></div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const TIPOS = [
+  'feminicidio_consumado',
+  'feminicidio_tentado',
+  'ameaca',
+  'estupro',
+  'lesao_corporal',
+  'geral',
+];
+
+const LABEL = {
+  feminicidio_consumado: 'Feminicídio Consumado',
+  feminicidio_tentado:   'Feminicídio Tentado',
+  ameaca:                'Ameaça',
+  estupro:               'Estupro',
+  lesao_corporal:        'Lesão Corporal',
+  geral:                 'Geral',
+};
+
+const COLOR = {
+  feminicidio_consumado: '#8e1a3a',
+  feminicidio_tentado:   '#e74c3c',
+  ameaca:                '#e67e22',
+  estupro:               '#8e44ad',
+  lesao_corporal:        '#2980b9',
+  geral:                 '#27ae60',
+};
+
+const MESES_LABEL = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const fmt = n => (n ?? 0).toLocaleString('pt-BR');
+
+// ── Estado global ─────────────────────────────────────────────────────────────
+let anualData       = [];
+let mensalData      = [];
+let anosDisponiveis = [];
+
+let visAnual  = Object.fromEntries(TIPOS.map(t => [t, t !== 'geral']));
+let visMensal = Object.fromEntries(TIPOS.map(t => [t, t !== 'geral']));
+let chartAnual  = null;
+let chartMensal = null;
+
+// estado da aba Por Cidade
+let anualCidadeData  = [];
+let mensalCidadeData = [];
+let cidadeSelecionada = '';
+let visCidadeAnual  = Object.fromEntries(TIPOS.map(t => [t, t !== 'geral']));
+let visCidadeMensal = Object.fromEntries(TIPOS.map(t => [t, t !== 'geral']));
+let chartCidadeAnual  = null;
+let chartCidadeMensal = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function pivot(rows, rowKey, colKey, valKey) {
+  const map = {};
+  for (const r of rows) {
+    if (!map[r[rowKey]]) map[r[rowKey]] = {};
+    map[r[rowKey]][r[colKey]] = r[valKey];
+  }
+  return map;
+}
+
+function makeDataset(tipo, labels, dataMap, visMap) {
+  return {
+    label: LABEL[tipo],
+    data: labels.map(l => dataMap[l]?.[tipo] ?? null),
+    borderColor: COLOR[tipo],
+    backgroundColor: COLOR[tipo] + '22',
+    borderWidth: 2,
+    pointRadius: 3,
+    pointHoverRadius: 5,
+    tension: 0.3,
+    fill: false,
+    hidden: !visMap[tipo],
+  };
+}
+
+const baseOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode: 'index', intersect: false },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}`,
+      },
+    },
+  },
+  scales: {
+    x: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 } } },
+    y: {
+      grid: { color: '#f0f0f0' },
+      ticks: {
+        font: { size: 11 },
+        callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v,
+      },
+    },
+  },
+};
+
+// ── Chips ─────────────────────────────────────────────────────────────────────
+function buildChips(containerId, visMap, onToggle) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  for (const tipo of TIPOS) {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (visMap[tipo] ? '' : ' off');
+    chip.style.cssText = `background:${COLOR[tipo]}22;border-color:${COLOR[tipo]};color:${COLOR[tipo]}`;
+    chip.innerHTML = `<span class="chip-dot" style="background:${COLOR[tipo]}"></span>${LABEL[tipo]}`;
+    chip.addEventListener('click', () => {
+      visMap[tipo] = !visMap[tipo];
+      chip.classList.toggle('off', !visMap[tipo]);
+      onToggle(tipo, visMap[tipo]);
+    });
+    el.appendChild(chip);
+  }
+}
+
+// ── Gráfico Anual (estado) ────────────────────────────────────────────────────
+function renderChartAnual() {
+  const anos  = [...new Set(anualData.map(d => d.ano))].sort();
+  const byAno = pivot(anualData, 'ano', 'tipo', 'total');
+
+  if (chartAnual) chartAnual.destroy();
+  chartAnual = new Chart(document.getElementById('chartAnual'), {
+    type: 'line',
+    data: { labels: anos, datasets: TIPOS.map(t => makeDataset(t, anos, byAno, visAnual)) },
+    options: baseOptions,
+  });
+
+  buildChips('chips-anual', visAnual, (tipo, vis) => {
+    const ds = chartAnual.data.datasets.find(d => d.label === LABEL[tipo]);
+    if (ds) { ds.hidden = !vis; chartAnual.update(); }
+  });
+}
+
+// ── Gráfico Mensal (estado) ───────────────────────────────────────────────────
+function renderChartMensal() {
+  const meses = [...new Set(mensalData.map(d => d.mes))].sort((a, b) => a - b);
+  const byMes = pivot(mensalData, 'mes', 'tipo', 'total');
+  const labels = meses.map(m => MESES_LABEL[m - 1]);
+
+  if (chartMensal) chartMensal.destroy();
+  chartMensal = new Chart(document.getElementById('chartMensal'), {
+    type: 'line',
+    data: { labels, datasets: TIPOS.map(t => makeDataset(t, meses, byMes, visMensal)) },
+    options: baseOptions,
+  });
+
+  buildChips('chips-mensal', visMensal, (tipo, vis) => {
+    const ds = chartMensal.data.datasets.find(d => d.label === LABEL[tipo]);
+    if (ds) { ds.hidden = !vis; chartMensal.update(); }
+  });
+}
+
+// ── Gráfico Anual (cidade) ────────────────────────────────────────────────────
+function renderChartCidadeAnual() {
+  const anos  = [...new Set(anualCidadeData.map(d => d.ano))].sort();
+  const byAno = pivot(anualCidadeData, 'ano', 'tipo', 'total');
+
+  if (chartCidadeAnual) chartCidadeAnual.destroy();
+  chartCidadeAnual = new Chart(document.getElementById('chartCidadeAnual'), {
+    type: 'line',
+    data: { labels: anos, datasets: TIPOS.map(t => makeDataset(t, anos, byAno, visCidadeAnual)) },
+    options: baseOptions,
+  });
+
+  buildChips('chips-cidade-anual', visCidadeAnual, (tipo, vis) => {
+    const ds = chartCidadeAnual.data.datasets.find(d => d.label === LABEL[tipo]);
+    if (ds) { ds.hidden = !vis; chartCidadeAnual.update(); }
+  });
+}
+
+// ── Gráfico Mensal (cidade) ───────────────────────────────────────────────────
+function renderChartCidadeMensal() {
+  const meses = [...new Set(mensalCidadeData.map(d => d.mes))].sort((a, b) => a - b);
+  const byMes = pivot(mensalCidadeData, 'mes', 'tipo', 'total');
+  const labels = meses.map(m => MESES_LABEL[m - 1]);
+
+  if (chartCidadeMensal) chartCidadeMensal.destroy();
+  chartCidadeMensal = new Chart(document.getElementById('chartCidadeMensal'), {
+    type: 'line',
+    data: { labels, datasets: TIPOS.map(t => makeDataset(t, meses, byMes, visCidadeMensal)) },
+    options: baseOptions,
+  });
+
+  buildChips('chips-cidade-mensal', visCidadeMensal, (tipo, vis) => {
+    const ds = chartCidadeMensal.data.datasets.find(d => d.label === LABEL[tipo]);
+    if (ds) { ds.hidden = !vis; chartCidadeMensal.update(); }
+  });
+}
+
+// ── Buscar cidade ─────────────────────────────────────────────────────────────
+async function buscarCidade() {
+  const input = document.getElementById('inputCidade');
+  const nome  = input.value.trim().toUpperCase();
+  if (!nome) return;
+
+  cidadeSelecionada = nome;
+
+  // Busca dados anuais da cidade
+  const __munIdx = window.__MUN_IDX__[nome];
+  const __munJson = __munIdx !== undefined
+    ? await fetch(`./data/${__munIdx}.json`).then(r => r.json())
+    : {anual: [], mensal: {}};
+  anualCidadeData = __munJson.anual;
+
+  if (!anualCidadeData.length) {
+    document.getElementById('cidadePlaceholder').textContent = `Município "${nome}" não encontrado.`;
+    document.getElementById('cidadePlaceholder').style.display = 'flex';
+    document.getElementById('cardCidadeAnual').style.display  = 'none';
+    document.getElementById('cardCidadeMensal').style.display = 'none';
+    return;
+  }
+
+  // Preenche seletor de ano para mensal da cidade
+  const selAnoCidade = document.getElementById('selAnoCidade');
+  selAnoCidade.innerHTML = '';
+  for (const a of [...anosDisponiveis].reverse()) {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = a;
+    selAnoCidade.appendChild(opt);
+  }
+  const latestAno = anosDisponiveis[anosDisponiveis.length - 1];
+
+  mensalCidadeData = __munJson.mensal[String(latestAno)] || [];
+
+  // Atualiza labels
+  document.getElementById('lblCidadeAnual').textContent  = nome;
+  document.getElementById('lblCidadeMensal').textContent = nome;
+
+  // Oculta placeholder, exibe cards
+  document.getElementById('cidadePlaceholder').style.display  = 'none';
+  document.getElementById('cardCidadeAnual').style.display    = '';
+  document.getElementById('cardCidadeMensal').style.display   = '';
+
+  renderChartCidadeAnual();
+  renderChartCidadeMensal();
+}
+
+document.getElementById('btnBuscarCidade').addEventListener('click', buscarCidade);
+document.getElementById('inputCidade').addEventListener('keydown', e => {
+  if (e.key === 'Enter') buscarCidade();
+});
+
+document.getElementById('selAnoCidade').addEventListener('change', async e => {
+  if (!cidadeSelecionada) return;
+  const __idx = window.__MUN_IDX__[cidadeSelecionada];
+  if (__idx !== undefined) {
+    const __d = await fetch(`./data/${__idx}.json`).then(r => r.json());
+    mensalCidadeData = __d.mensal[e.target.value] || [];
+  } else {
+    mensalCidadeData = [];
+  }
+  renderChartCidadeMensal();
+});
+
+// ── Tabelas ───────────────────────────────────────────────────────────────────
+function renderTabelaAnual() {
+  const anos  = [...new Set(anualData.map(d => d.ano))].sort();
+  const byAno = pivot(anualData, 'ano', 'tipo', 'total');
+  const tipos = TIPOS.filter(t => anualData.some(d => d.tipo === t));
+
+  let html = '<table><thead><tr><th>Ano</th>';
+  for (const t of tipos) html += `<th>${LABEL[t]}</th>`;
+  html += '</tr></thead><tbody>';
+
+  const colTotals = Object.fromEntries(tipos.map(t => [t, 0]));
+
+  for (const ano of anos) {
+    html += `<tr><td>${ano}</td>`;
+    for (const t of tipos) {
+      const v = byAno[ano]?.[t] ?? 0;
+      colTotals[t] += v;
+      html += `<td>${fmt(v)}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody><tfoot><tr><td>Total</td>';
+  for (const t of tipos) html += `<td>${fmt(colTotals[t])}</td>`;
+  html += '</tr></tfoot></table>';
+
+  document.getElementById('tabelaAnual').innerHTML = html;
+}
+
+function renderTabelaMensal() {
+  if (!mensalData.length) {
+    document.getElementById('tabelaMensal').innerHTML =
+      '<div class="loading">Sem dados mensais para este ano.</div>';
+    return;
+  }
+  const meses = [...new Set(mensalData.map(d => d.mes))].sort((a, b) => a - b);
+  const byMes = pivot(mensalData, 'mes', 'tipo', 'total');
+  const tipos = TIPOS.filter(t => mensalData.some(d => d.tipo === t));
+
+  let html = '<table><thead><tr><th>Mês</th>';
+  for (const t of tipos) html += `<th>${LABEL[t]}</th>`;
+  html += '</tr></thead><tbody>';
+
+  const colTotals = Object.fromEntries(tipos.map(t => [t, 0]));
+
+  for (const mes of meses) {
+    html += `<tr><td>${MESES_LABEL[mes - 1]}</td>`;
+    for (const t of tipos) {
+      const v = byMes[mes]?.[t] ?? 0;
+      colTotals[t] += v;
+      html += `<td>${fmt(v)}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody><tfoot><tr><td>Total</td>';
+  for (const t of tipos) html += `<td>${fmt(colTotals[t])}</td>`;
+  html += '</tr></tfoot></table>';
+
+  document.getElementById('tabelaMensal').innerHTML = html;
+}
+
+// ── Seletores de ano (tabelas e gráfico mensal) ───────────────────────────────
+function populateSelects(anos) {
+  const latest = anos[anos.length - 1];
+  for (const id of ['selAno', 'selAnoTab']) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '';
+    for (const a of [...anos].reverse()) {
+      const opt = document.createElement('option');
+      opt.value = a;
+      opt.textContent = a;
+      if (a === latest) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+
+  document.getElementById('selAno').addEventListener('change', async e => {
+    mensalData = window.__MENSAL__[e.target.value] || [];
+    renderChartMensal();
+  });
+
+  document.getElementById('selAnoTab').addEventListener('change', async e => {
+    mensalData = window.__MENSAL__[e.target.value] || [];
+    renderTabelaMensal();
+  });
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('main section').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  const [ad, anos, municipios] = await Promise.all([
+    Promise.resolve(window.__ANUAL__),
+    Promise.resolve(window.__ANOS__),
+    Promise.resolve(window.__MUNICIPIOS__),
+  ]);
+
+  anualData       = ad;
+  anosDisponiveis = anos;
+
+  // Preenche datalist de municípios
+  const dl = document.getElementById('listaCidades');
+  for (const m of municipios) {
+    const opt = document.createElement('option');
+    opt.value = m;
+    dl.appendChild(opt);
+  }
+
+  renderChartAnual();
+  renderTabelaAnual();
+
+  if (anosDisponiveis.length) {
+    populateSelects(anosDisponiveis);
+    const latestAno = anosDisponiveis[anosDisponiveis.length - 1];
+    mensalData = window.__MENSAL__[String(latestAno)] || [];
+    renderChartMensal();
+    renderTabelaMensal();
+  }
+}
+
+init();
+</script>
+<script>
+window.__ANUAL__     = [{"tipo": "ameaca", "ano": 2012, "total": 44969}, {"tipo": "estupro", "ano": 2012, "total": 1454}, {"tipo": "feminicidio_consumado", "ano": 2012, "total": 101}, {"tipo": "geral", "ano": 2012, "total": 5427}, {"tipo": "lesao_corporal", "ano": 2012, "total": 27123}, {"tipo": "ameaca", "ano": 2013, "total": 43879}, {"tipo": "estupro", "ano": 2013, "total": 1448}, {"tipo": "feminicidio_consumado", "ano": 2013, "total": 92}, {"tipo": "feminicidio_tentado", "ano": 2013, "total": 229}, {"tipo": "lesao_corporal", "ano": 2013, "total": 26137}, {"tipo": "ameaca", "ano": 2014, "total": 44771}, {"tipo": "estupro", "ano": 2014, "total": 1407}, {"tipo": "feminicidio_consumado", "ano": 2014, "total": 75}, {"tipo": "feminicidio_tentado", "ano": 2014, "total": 286}, {"tipo": "lesao_corporal", "ano": 2014, "total": 25542}, {"tipo": "ameaca", "ano": 2015, "total": 42841}, {"tipo": "estupro", "ano": 2015, "total": 1472}, {"tipo": "feminicidio_consumado", "ano": 2015, "total": 99}, {"tipo": "feminicidio_tentado", "ano": 2015, "total": 311}, {"tipo": "lesao_corporal", "ano": 2015, "total": 24533}, {"tipo": "ameaca", "ano": 2016, "total": 39606}, {"tipo": "estupro", "ano": 2016, "total": 1574}, {"tipo": "feminicidio_consumado", "ano": 2016, "total": 96}, {"tipo": "feminicidio_tentado", "ano": 2016, "total": 263}, {"tipo": "lesao_corporal", "ano": 2016, "total": 22667}, {"tipo": "ameaca", "ano": 2017, "total": 37946}, {"tipo": "estupro", "ano": 2017, "total": 1661}, {"tipo": "feminicidio_consumado", "ano": 2017, "total": 83}, {"tipo": "feminicidio_tentado", "ano": 2017, "total": 322}, {"tipo": "lesao_corporal", "ano": 2017, "total": 22960}, {"tipo": "ameaca", "ano": 2018, "total": 37623}, {"tipo": "estupro", "ano": 2018, "total": 1712}, {"tipo": "feminicidio_consumado", "ano": 2018, "total": 116}, {"tipo": "feminicidio_tentado", "ano": 2018, "total": 355}, {"tipo": "geral", "ano": 2018, "total": 61621}, {"tipo": "lesao_corporal", "ano": 2018, "total": 21815}, {"tipo": "ameaca", "ano": 2019, "total": 37381}, {"tipo": "estupro", "ano": 2019, "total": 1714}, {"tipo": "feminicidio_consumado", "ano": 2019, "total": 97}, {"tipo": "feminicidio_tentado", "ano": 2019, "total": 359}, {"tipo": "geral", "ano": 2019, "total": 60540}, {"tipo": "lesao_corporal", "ano": 2019, "total": 20989}, {"tipo": "ameaca", "ano": 2020, "total": 33756}, {"tipo": "estupro", "ano": 2020, "total": 2246}, {"tipo": "feminicidio_consumado", "ano": 2020, "total": 80}, {"tipo": "feminicidio_tentado", "ano": 2020, "total": 318}, {"tipo": "geral", "ano": 2020, "total": 55301}, {"tipo": "lesao_corporal", "ano": 2020, "total": 18901}, {"tipo": "ameaca", "ano": 2021, "total": 32762}, {"tipo": "estupro", "ano": 2021, "total": 2455}, {"tipo": "feminicidio_consumado", "ano": 2021, "total": 96}, {"tipo": "feminicidio_tentado", "ano": 2021, "total": 255}, {"tipo": "geral", "ano": 2021, "total": 53575}, {"tipo": "lesao_corporal", "ano": 2021, "total": 18007}, {"tipo": "ameaca", "ano": 2022, "total": 31389}, {"tipo": "estupro", "ano": 2022, "total": 2783}, {"tipo": "feminicidio_consumado", "ano": 2022, "total": 111}, {"tipo": "feminicidio_tentado", "ano": 2022, "total": 263}, {"tipo": "geral", "ano": 2022, "total": 52743}, {"tipo": "lesao_corporal", "ano": 2022, "total": 18197}, {"tipo": "ameaca", "ano": 2023, "total": 33453}, {"tipo": "estupro", "ano": 2023, "total": 2820}, {"tipo": "feminicidio_consumado", "ano": 2023, "total": 86}, {"tipo": "feminicidio_tentado", "ano": 2023, "total": 237}, {"tipo": "geral", "ano": 2023, "total": 56499}, {"tipo": "lesao_corporal", "ano": 2023, "total": 19903}, {"tipo": "ameaca", "ano": 2024, "total": 31523}, {"tipo": "estupro", "ano": 2024, "total": 2522}, {"tipo": "feminicidio_consumado", "ano": 2024, "total": 73}, {"tipo": "feminicidio_tentado", "ano": 2024, "total": 236}, {"tipo": "geral", "ano": 2024, "total": 53101}, {"tipo": "lesao_corporal", "ano": 2024, "total": 18747}, {"tipo": "ameaca", "ano": 2025, "total": 31951}, {"tipo": "estupro", "ano": 2025, "total": 2450}, {"tipo": "feminicidio_consumado", "ano": 2025, "total": 80}, {"tipo": "feminicidio_tentado", "ano": 2025, "total": 263}, {"tipo": "geral", "ano": 2025, "total": 53244}, {"tipo": "lesao_corporal", "ano": 2025, "total": 18500}, {"tipo": "ameaca", "ano": 2026, "total": 8809}, {"tipo": "estupro", "ano": 2026, "total": 537}, {"tipo": "feminicidio_consumado", "ano": 2026, "total": 24}, {"tipo": "feminicidio_tentado", "ano": 2026, "total": 83}, {"tipo": "geral", "ano": 2026, "total": 14499}, {"tipo": "lesao_corporal", "ano": 2026, "total": 5046}];
+window.__ANOS__      = [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
+window.__MUNICIPIOS__= ["ABSOLUTA", "ACEGUA", "AGUA SANTA", "AGUDO", "AJURICABA", "ALECRIM", "ALEGRETE", "ALEGRIA", "ALMIRANTE TAMANDARE DO SUL", "ALPESTRE", "ALTO ALEGRE", "ALTO FELIZ", "ALVORADA", "AMARAL FERRADOR", "AMEAÇA", "AMETISTA DO SUL", "ANDRE DA ROCHA", "ANTA GORDA", "ANTONIO PRADO", "ARAMBARE", "ARARICA", "ARATIBA", "ARROIO DO MEIO", "ARROIO DO PADRE", "ARROIO DO SAL", "ARROIO DO TIGRE", "ARROIO DOS RATOS", "ARROIO GRANDE", "ARVOREZINHA", "AUGUSTO PESTANA", "AUREA", "BAGE", "BALNEARIO PINHAL", "BARAO", "BARAO DO COTEGIPE", "BARAO DO TRIUNFO", "BARRA DO GUARITA", "BARRA DO QUARAI", "BARRA DO RIBEIRO", "BARRA DO RIO AZUL", "BARRA FUNDA", "BARRACAO", "BARROS CASSAL", "BENJAMIN CONSTANT DO SUL", "BENTO GONCALVES", "BOA VISTA DAS MISSOES", "BOA VISTA DO BURICA", "BOA VISTA DO CADEADO", "BOA VISTA DO INCRA", "BOA VISTA DO SUL", "BOM JESUS", "BOM PRINCIPIO", "BOM PROGRESSO", "BOM RETIRO DO SUL", "BOQUEIRAO DO LEAO", "BOSSOROCA", "BOZANO", "BRAGA", "BROCHIER", "BUTIA", "CACAPAVA DO SUL", "CACEQUI", "CACHOEIRA DO SUL", "CACHOEIRINHA", "CACIQUE DOBLE", "CAIBATE", "CAICARA", "CAMAQUA", "CAMARGO", "CAMBARA DO SUL", "CAMPESTRE DA SERRA", "CAMPINA DAS MISSOES", "CAMPINAS DO SUL", "CAMPO BOM", "CAMPO NOVO", "CAMPOS BORGES", "CANDELARIA", "CANDIDO GODOI", "CANDIOTA", "CANELA", "CANGUCU", "CANOAS", "CANUDOS DO VALE", "CAPAO BONITO DO SUL", "CAPAO DA CANOA", "CAPAO DO CIPO", "CAPAO DO LEAO", "CAPELA DE SANTANA", "CAPITAO", "CAPIVARI DO SUL", "CARAA", "CARAZINHO", "CARLOS BARBOSA", "CARLOS GOMES", "CASCA", "CASEIROS", "CATUIPE", "CAXIAS DO SUL", "CENTENARIO", "CERRITO", "CERRO BRANCO", "CERRO GRANDE", "CERRO GRANDE DO SUL", "CERRO LARGO", "CHAPADA", "CHARQUEADAS", "CHARRUA", "CHIAPETTA", "CHUI", "CHUVISCA", "CIDREIRA", "CIRIACO", "COLINAS", "COLORADO", "CONDOR", "CONSTANTINA", "COQUEIRO BAIXO", "COQUEIROS DO SUL", "CORONEL BARROS", "CORONEL BICACO", "CORONEL PILAR", "COTIPORA", "COXILHA", "CRISSIUMAL", "CRISTAL", "CRISTAL DO SUL", "CRUZ ALTA", "CRUZALTENSE", "CRUZEIRO DO SUL", "DAVID CANABARRO", "DELITOS ENQUADRADOS NA LEI MARIA DA PENHA", "DERRUBADAS", "DEZESSEIS DE NOVEMBRO", "DIFERENÇA", "DILERMANDO DE AGUIAR", "DOIS IRMAOS", "DOIS IRMAOS DAS MISSOES", "DOIS LAJEADOS", "DOM FELICIANO", "DOM PEDRITO", "DOM PEDRO DE ALCANTARA", "DONA FRANCISCA", "DOUTOR RICARDO", "DR MAURICIO CARDOSO", "ELDORADO DO SUL", "ENCANTADO", "ENCRUZILHADA DO SUL", "ENGENHO VELHO", "ENTRE IJUIS", "ENTRE RIOS DO SUL", "EREBANGO", "ERECHIM", "ERNESTINA", "ERVAL GRANDE", "ERVAL SECO", "ESMERALDA", "ESPERANCA DO SUL", "ESPUMOSO", "ESTACAO", "ESTANCIA VELHA", "ESTEIO", "ESTRELA", "ESTRELA VELHA", "ESTUPRO", "EUGENIO DE CASTRO", "FAGUNDES VARELA", "FARROUPILHA", "FAXINAL DO SOTURNO", "FAXINALZINHO", "FAZENDA VILA NOVA", "FELIZ", "FEMICÍDIO CONSUMADO", "FEMICÍDIO TENTADO", "FEMINICÍDIO CONSUMADO", "FEMINICÍDIO TENTADO", "FLORES DA CUNHA", "FLORIANO PEIXOTO", "FONTE: SIP/PROCERGS - ATUALIZADO EM 21/2/2020.", "FONTE: SIP/PROCERGS - ATUALIZADO EM 4/12/2023.", "FONTE: SIP/PROCERGS - ATUALIZADO EM 5/1/2026.", "FONTE: SIP/PROCERGS - ATUALIZADO EM 5/5/2023.", "FONTE: SIP/PROCERGS - ATUALIZADO EM 6/1/2025.", "FONTE: SIP/PROCERGS - ATUALIZADO EM 7/1/2019.", "FONTE: SIP/PROCERGS - ATUALIZADO EM 7/4/2026.", "FONTE: SIP/PROCERGS - ATUALIZADO EM 9/1/2018.", "FONTE: SIP/PROCERGS - ATUALIZADO EM 9/1/2018. DADOS REVISADOS EM 21/08/2019.", "FONTOURA XAVIER", "FORMIGUEIRO", "FORQUETINHA", "FORTALEZA DOS VALOS", "FREDERICO WESTPHALEN", "GARIBALDI", "GARRUCHOS", "GAURAMA", "GENERAL CAMARA", "GENTIL", "GETULIO VARGAS", "GIRUA", "GLORINHA", "GRAMADO", "GRAMADO DOS LOUREIROS", "GRAMADO XAVIER", "GRAVATAI", "GUABIJU", "GUAIBA", "GUAPORE", "GUARANI DAS MISSOES", "HARMONIA", "HERVAL", "HERVEIRAS", "HORIZONTINA", "HULHA NEGRA", "HUMAITA", "IBARAMA", "IBIACA", "IBIRAIARAS", "IBIRAPUITA", "IBIRUBA", "IGREJINHA", "IJUI", "ILOPOLIS", "IMBE", "IMIGRANTE", "INDEPENDENCIA", "INHACORA", "IPE", "IPIRANGA DO SUL", "IRAI", "ITAARA", "ITACURUBI", "ITAPUCA", "ITAQUI", "ITATI", "ITATIBA DO SUL", "IVORA", "IVOTI", "JABOTICABA", "JACUIZINHO", "JACUTINGA", "JAGUARAO", "JAGUARI", "JAQUIRANA", "JARI", "JOIA", "JULIO DE CASTILHOS", "LAGOA BONITA DO SUL", "LAGOA DOS TRES CANTOS", "LAGOA VERMELHA", "LAGOAO", "LAJEADO", "LAJEADO DO BUGRE", "LAVRAS DO SUL", "LESÃO CORPORAL", "LIBERATO SALZANO", "LINDOLFO COLLOR", "LINHA NOVA", "MACAMBARA", "MACHADINHO", "MAMPITUBA", "MANOEL VIANA", "MAQUINE", "MARATA", "MARAU", "MARCELINO RAMOS", "MARIANA PIMENTEL", "MARIANO MORO", "MARQUES DE SOUZA", "MATA", "MATO CASTELHANO", "MATO LEITAO", "MATO QUEIMADO", "MAXIMILIANO DE ALMEIDA", "MINAS DO LEAO", "MIRAGUAI", "MONTAURI", "MONTE ALEGRE DOS CAMPOS", "MONTE BELO DO SUL", "MONTENEGRO", "MORMACO", "MORRINHOS DO SUL", "MORRO REDONDO", "MORRO REUTER", "MOSTARDAS", "MUCUM", "MUITOS CAPOES", "MULITERNO", "NAO ME TOQUE", "NICOLAU VERGUEIRO", "NONOAI", "NOTAS:", "NOVA ALVORADA", "NOVA ARACA", "NOVA BASSANO", "NOVA BOA VISTA", "NOVA BRESCIA", "NOVA CANDELARIA", "NOVA ESPERANCA DO SUL", "NOVA HARTZ", "NOVA PADUA", "NOVA PALMA", "NOVA PETROPOLIS", "NOVA PRATA", "NOVA RAMADA", "NOVA ROMA DO SUL", "NOVA SANTA RITA", "NOVO BARREIRO", "NOVO CABRAIS", "NOVO HAMBURGO", "NOVO MACHADO", "NOVO TIRADENTES", "NOVO XINGU", "NÃO INFORMADO", "OBSERVAÇÃO:", "OBSERVAÇÕES:", "OSORIO", "PAIM FILHO", "PALMARES DO SUL", "PALMEIRA DAS MISSOES", "PALMITINHO", "PANAMBI", "PANTANO GRANDE", "PARAI", "PARAISO DO SUL", "PARECI NOVO", "PAROBE", "PASSA SETE", "PASSO DO SOBRADO", "PASSO FUNDO", "PAULO BENTO", "PAVERAMA", "PEDRAS ALTAS", "PEDRO OSORIO", "PEJUCARA", "PELOTAS", "PICADA CAFE", "PINHAL", "PINHAL DA SERRA", "PINHAL GRANDE", "PINHEIRINHO DO VALE", "PINHEIRO MACHADO", "PINTO BANDEIRA", "PIRAPO", "PIRATINI", "PLANALTO", "POCO DAS ANTAS", "PONTAO", "PONTE PRETA", "PORTAO", "PORTO ALEGRE", "PORTO LUCENA", "PORTO MAUA", "PORTO VERA CRUZ", "PORTO XAVIER", "POUSO NOVO", "PRESIDENTE LUCENA", "PROGRESSO", "PROTASIO ALVES", "PUTINGA", "QUARAI", "QUATRO IRMAOS", "QUEVEDOS", "QUINZE DE NOVEMBRO", "REDENTORA", "RELATIVA", "RELVADO", "RESTINGA SECA", "RIO DOS INDIOS", "RIO GRANDE", "RIO PARDO", "RIOZINHO", "ROCA SALES", "RODEIO BONITO", "ROLADOR", "ROLANTE", "RONDA ALTA", "RONDINHA", "ROQUE GONZALES", "ROSARIO DO SUL", "SAGRADA FAMILIA", "SALDANHA MARINHO", "SALTO DO JACUI", "SALVADOR DAS MISSOES", "SALVADOR DO SUL", "SANANDUVA", "SANTA BARBARA DO SUL", "SANTA CECILIA DO SUL", "SANTA CLARA DO SUL", "SANTA CRUZ DO SUL", "SANTA MARGARIDA DO SUL", "SANTA MARIA", "SANTA MARIA DO HERVAL", "SANTA ROSA", "SANTA TEREZA", "SANTA VITORIA DO PALMAR", "SANTANA DA BOA VISTA", "SANTANA DO LIVRAMENTO", "SANTIAGO", "SANTO ANGELO", "SANTO ANTONIO DA PATRULHA", "SANTO ANTONIO DAS MISSOES", "SANTO ANTONIO DO PALMA", "SANTO ANTONIO DO PLANALTO", "SANTO AUGUSTO", "SANTO CRISTO", "SANTO EXPEDITO DO SUL", "SAO BORJA", "SAO DOMINGOS DO SUL", "SAO FRANCISCO DE ASSIS", "SAO FRANCISCO DE PAULA", "SAO GABRIEL", "SAO JERONIMO", "SAO JOAO DA URTIGA", "SAO JOAO DO POLESINE", "SAO JORGE", "SAO JOSE DAS MISSOES", "SAO JOSE DO HERVAL", "SAO JOSE DO HORTENCIO", "SAO JOSE DO INHACORA", "SAO JOSE DO NORTE", "SAO JOSE DO OURO", "SAO JOSE DO SUL", "SAO JOSE DOS AUSENTES", "SAO LEOPOLDO", "SAO LOURENCO DO SUL", "SAO LUIZ GONZAGA", "SAO MARCOS", "SAO MARTINHO", "SAO MARTINHO DA SERRA", "SAO MIGUEL DAS MISSOES", "SAO NICOLAU", "SAO PAULO DAS MISSOES", "SAO PEDRO DA SERRA", "SAO PEDRO DAS MISSOES", "SAO PEDRO DO BUTIA", "SAO PEDRO DO SUL", "SAO SEBASTIAO DO CAI", "SAO SEPE", "SAO VALENTIM", "SAO VALENTIM DO SUL", "SAO VALERIO DO SUL", "SAO VENDELINO", "SAO VICENTE DO SUL", "SAPIRANGA", "SAPUCAIA DO SUL", "SARANDI", "SEBERI", "SEDE NOVA", "SEGREDO", "SELBACH", "SENADOR SALGADO FILHO", "SENTINELA DO SUL", "SERAFINA CORREA", "SERIO", "SERTAO", "SERTAO SANTANA", "SETE DE SETEMBRO", "SEVERIANO DE ALMEIDA", "SILVEIRA MARTINS", "SINIMBU", "SOBRADINHO", "SOLEDADE", "TABAI", "TAPEJARA", "TAPERA", "TAPES", "TAQUARA", "TAQUARI", "TAQUARUCU DO SUL", "TAVARES", "TENENTE PORTELA", "TERRA DE AREIA", "TEUTONIA", "TIO HUGO", "TIRADENTES DO SUL", "TOROPI", "TORRES", "TRAMANDAI", "TRAVESSEIRO", "TRES ARROIOS", "TRES CACHOEIRAS", "TRES COROAS", "TRES DE MAIO", "TRES FORQUILHAS", "TRES PALMEIRAS", "TRES PASSOS", "TRINDADE DO SUL", "TRIUNFO", "TUCUNDUVA", "TUNAS", "TUPANCI DO SUL", "TUPANCIRETA", "TUPANDI", "TUPARENDI", "TURUCU", "UBIRETAMA", "UNIAO DA SERRA", "UNISTALDA", "URUGUAIANA", "VACARIA", "VALE DO SOL", "VALE REAL", "VALE VERDE", "VANINI", "VARIAÇÃO DE INDICADORES ENTRE 2016 E 2017", "VENANCIO AIRES", "VERA CRUZ", "VERANOPOLIS", "VESPASIANO CORREA", "VIADUTOS", "VIAMAO", "VICENTE DUTRA", "VICTOR GRAEFF", "VILA FLORES", "VILA LANGARO", "VILA MARIA", "VILA NOVA DO SUL", "VISTA ALEGRE", "VISTA ALEGRE DO PRATA", "VISTA GAUCHA", "VITORIA DAS MISSOES", "WESTFALIA", "XANGRILA"];
+window.__MENSAL__    = {"2018": [{"tipo": "ameaca", "mes": 1, "total": 3625}, {"tipo": "estupro", "mes": 1, "total": 194}, {"tipo": "feminicidio_consumado", "mes": 1, "total": 7}, {"tipo": "feminicidio_tentado", "mes": 1, "total": 35}, {"tipo": "geral", "mes": 1, "total": 6037}, {"tipo": "lesao_corporal", "mes": 1, "total": 2176}, {"tipo": "ameaca", "mes": 2, "total": 3268}, {"tipo": "estupro", "mes": 2, "total": 173}, {"tipo": "feminicidio_consumado", "mes": 2, "total": 3}, {"tipo": "feminicidio_tentado", "mes": 2, "total": 34}, {"tipo": "geral", "mes": 2, "total": 5467}, {"tipo": "lesao_corporal", "mes": 2, "total": 1989}, {"tipo": "ameaca", "mes": 3, "total": 3459}, {"tipo": "estupro", "mes": 3, "total": 175}, {"tipo": "feminicidio_consumado", "mes": 3, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 3, "total": 30}, {"tipo": "geral", "mes": 3, "total": 5745}, {"tipo": "lesao_corporal", "mes": 3, "total": 2073}, {"tipo": "ameaca", "mes": 4, "total": 3314}, {"tipo": "estupro", "mes": 4, "total": 167}, {"tipo": "feminicidio_consumado", "mes": 4, "total": 11}, {"tipo": "feminicidio_tentado", "mes": 4, "total": 44}, {"tipo": "geral", "mes": 4, "total": 5373}, {"tipo": "lesao_corporal", "mes": 4, "total": 1837}, {"tipo": "ameaca", "mes": 5, "total": 2875}, {"tipo": "estupro", "mes": 5, "total": 158}, {"tipo": "feminicidio_consumado", "mes": 5, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 5, "total": 34}, {"tipo": "geral", "mes": 5, "total": 4705}, {"tipo": "lesao_corporal", "mes": 5, "total": 1628}, {"tipo": "ameaca", "mes": 6, "total": 2640}, {"tipo": "estupro", "mes": 6, "total": 110}, {"tipo": "feminicidio_consumado", "mes": 6, "total": 16}, {"tipo": "feminicidio_tentado", "mes": 6, "total": 17}, {"tipo": "geral", "mes": 6, "total": 4224}, {"tipo": "lesao_corporal", "mes": 6, "total": 1441}, {"tipo": "ameaca", "mes": 7, "total": 2868}, {"tipo": "estupro", "mes": 7, "total": 121}, {"tipo": "feminicidio_consumado", "mes": 7, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 7, "total": 33}, {"tipo": "geral", "mes": 7, "total": 4462}, {"tipo": "lesao_corporal", "mes": 7, "total": 1432}, {"tipo": "ameaca", "mes": 8, "total": 3047}, {"tipo": "estupro", "mes": 8, "total": 151}, {"tipo": "feminicidio_consumado", "mes": 8, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 8, "total": 22}, {"tipo": "geral", "mes": 8, "total": 4680}, {"tipo": "lesao_corporal", "mes": 8, "total": 1450}, {"tipo": "ameaca", "mes": 9, "total": 2944}, {"tipo": "estupro", "mes": 9, "total": 135}, {"tipo": "feminicidio_consumado", "mes": 9, "total": 12}, {"tipo": "feminicidio_tentado", "mes": 9, "total": 26}, {"tipo": "geral", "mes": 9, "total": 4866}, {"tipo": "lesao_corporal", "mes": 9, "total": 1749}, {"tipo": "ameaca", "mes": 10, "total": 3285}, {"tipo": "estupro", "mes": 10, "total": 112}, {"tipo": "feminicidio_consumado", "mes": 10, "total": 7}, {"tipo": "feminicidio_tentado", "mes": 10, "total": 26}, {"tipo": "geral", "mes": 10, "total": 5312}, {"tipo": "lesao_corporal", "mes": 10, "total": 1882}, {"tipo": "ameaca", "mes": 11, "total": 3188}, {"tipo": "estupro", "mes": 11, "total": 99}, {"tipo": "feminicidio_consumado", "mes": 11, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 11, "total": 32}, {"tipo": "geral", "mes": 11, "total": 5263}, {"tipo": "lesao_corporal", "mes": 11, "total": 1936}, {"tipo": "ameaca", "mes": 12, "total": 3110}, {"tipo": "estupro", "mes": 12, "total": 117}, {"tipo": "feminicidio_consumado", "mes": 12, "total": 16}, {"tipo": "feminicidio_tentado", "mes": 12, "total": 22}, {"tipo": "geral", "mes": 12, "total": 5487}, {"tipo": "lesao_corporal", "mes": 12, "total": 2222}], "2019": [{"tipo": "ameaca", "mes": 1, "total": 3765}, {"tipo": "estupro", "mes": 1, "total": 184}, {"tipo": "feminicidio_consumado", "mes": 1, "total": 3}, {"tipo": "feminicidio_tentado", "mes": 1, "total": 44}, {"tipo": "geral", "mes": 1, "total": 6112}, {"tipo": "lesao_corporal", "mes": 1, "total": 2116}, {"tipo": "ameaca", "mes": 2, "total": 3214}, {"tipo": "estupro", "mes": 2, "total": 132}, {"tipo": "feminicidio_consumado", "mes": 2, "total": 1}, {"tipo": "feminicidio_tentado", "mes": 2, "total": 23}, {"tipo": "geral", "mes": 2, "total": 5190}, {"tipo": "lesao_corporal", "mes": 2, "total": 1820}, {"tipo": "ameaca", "mes": 3, "total": 3457}, {"tipo": "estupro", "mes": 3, "total": 126}, {"tipo": "feminicidio_consumado", "mes": 3, "total": 11}, {"tipo": "feminicidio_tentado", "mes": 3, "total": 25}, {"tipo": "geral", "mes": 3, "total": 5568}, {"tipo": "lesao_corporal", "mes": 3, "total": 1949}, {"tipo": "ameaca", "mes": 4, "total": 3085}, {"tipo": "estupro", "mes": 4, "total": 107}, {"tipo": "feminicidio_consumado", "mes": 4, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 4, "total": 37}, {"tipo": "geral", "mes": 4, "total": 4954}, {"tipo": "lesao_corporal", "mes": 4, "total": 1719}, {"tipo": "ameaca", "mes": 5, "total": 2893}, {"tipo": "estupro", "mes": 5, "total": 104}, {"tipo": "feminicidio_consumado", "mes": 5, "total": 11}, {"tipo": "feminicidio_tentado", "mes": 5, "total": 31}, {"tipo": "geral", "mes": 5, "total": 4538}, {"tipo": "lesao_corporal", "mes": 5, "total": 1499}, {"tipo": "ameaca", "mes": 6, "total": 2799}, {"tipo": "estupro", "mes": 6, "total": 133}, {"tipo": "feminicidio_consumado", "mes": 6, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 6, "total": 23}, {"tipo": "geral", "mes": 6, "total": 4553}, {"tipo": "lesao_corporal", "mes": 6, "total": 1589}, {"tipo": "ameaca", "mes": 7, "total": 2739}, {"tipo": "estupro", "mes": 7, "total": 143}, {"tipo": "feminicidio_consumado", "mes": 7, "total": 14}, {"tipo": "feminicidio_tentado", "mes": 7, "total": 22}, {"tipo": "geral", "mes": 7, "total": 4282}, {"tipo": "lesao_corporal", "mes": 7, "total": 1364}, {"tipo": "ameaca", "mes": 8, "total": 3004}, {"tipo": "estupro", "mes": 8, "total": 156}, {"tipo": "feminicidio_consumado", "mes": 8, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 8, "total": 27}, {"tipo": "geral", "mes": 8, "total": 4655}, {"tipo": "lesao_corporal", "mes": 8, "total": 1460}, {"tipo": "ameaca", "mes": 9, "total": 3031}, {"tipo": "estupro", "mes": 9, "total": 174}, {"tipo": "feminicidio_consumado", "mes": 9, "total": 7}, {"tipo": "feminicidio_tentado", "mes": 9, "total": 14}, {"tipo": "geral", "mes": 9, "total": 4889}, {"tipo": "lesao_corporal", "mes": 9, "total": 1663}, {"tipo": "ameaca", "mes": 10, "total": 3085}, {"tipo": "estupro", "mes": 10, "total": 166}, {"tipo": "feminicidio_consumado", "mes": 10, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 10, "total": 41}, {"tipo": "geral", "mes": 10, "total": 5024}, {"tipo": "lesao_corporal", "mes": 10, "total": 1723}, {"tipo": "ameaca", "mes": 11, "total": 3075}, {"tipo": "estupro", "mes": 11, "total": 156}, {"tipo": "feminicidio_consumado", "mes": 11, "total": 11}, {"tipo": "feminicidio_tentado", "mes": 11, "total": 39}, {"tipo": "geral", "mes": 11, "total": 5166}, {"tipo": "lesao_corporal", "mes": 11, "total": 1885}, {"tipo": "ameaca", "mes": 12, "total": 3234}, {"tipo": "estupro", "mes": 12, "total": 133}, {"tipo": "feminicidio_consumado", "mes": 12, "total": 7}, {"tipo": "feminicidio_tentado", "mes": 12, "total": 33}, {"tipo": "geral", "mes": 12, "total": 5609}, {"tipo": "lesao_corporal", "mes": 12, "total": 2202}], "2020": [{"tipo": "ameaca", "mes": 1, "total": 3805}, {"tipo": "estupro", "mes": 1, "total": 244}, {"tipo": "feminicidio_consumado", "mes": 1, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 1, "total": 22}, {"tipo": "geral", "mes": 1, "total": 6294}, {"tipo": "lesao_corporal", "mes": 1, "total": 2213}, {"tipo": "ameaca", "mes": 2, "total": 3481}, {"tipo": "estupro", "mes": 2, "total": 192}, {"tipo": "feminicidio_consumado", "mes": 2, "total": 4}, {"tipo": "feminicidio_tentado", "mes": 2, "total": 23}, {"tipo": "geral", "mes": 2, "total": 5701}, {"tipo": "lesao_corporal", "mes": 2, "total": 2001}, {"tipo": "ameaca", "mes": 3, "total": 2904}, {"tipo": "estupro", "mes": 3, "total": 181}, {"tipo": "feminicidio_consumado", "mes": 3, "total": 13}, {"tipo": "feminicidio_tentado", "mes": 3, "total": 19}, {"tipo": "geral", "mes": 3, "total": 4931}, {"tipo": "lesao_corporal", "mes": 3, "total": 1814}, {"tipo": "ameaca", "mes": 4, "total": 2263}, {"tipo": "estupro", "mes": 4, "total": 115}, {"tipo": "feminicidio_consumado", "mes": 4, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 4, "total": 24}, {"tipo": "geral", "mes": 4, "total": 3720}, {"tipo": "lesao_corporal", "mes": 4, "total": 1309}, {"tipo": "ameaca", "mes": 5, "total": 2425}, {"tipo": "estupro", "mes": 5, "total": 163}, {"tipo": "feminicidio_consumado", "mes": 5, "total": 7}, {"tipo": "feminicidio_tentado", "mes": 5, "total": 32}, {"tipo": "geral", "mes": 5, "total": 3849}, {"tipo": "lesao_corporal", "mes": 5, "total": 1222}, {"tipo": "ameaca", "mes": 6, "total": 2431}, {"tipo": "estupro", "mes": 6, "total": 165}, {"tipo": "feminicidio_consumado", "mes": 6, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 6, "total": 28}, {"tipo": "geral", "mes": 6, "total": 3886}, {"tipo": "lesao_corporal", "mes": 6, "total": 1254}, {"tipo": "ameaca", "mes": 7, "total": 2426}, {"tipo": "estupro", "mes": 7, "total": 159}, {"tipo": "feminicidio_consumado", "mes": 7, "total": 2}, {"tipo": "feminicidio_tentado", "mes": 7, "total": 21}, {"tipo": "geral", "mes": 7, "total": 3771}, {"tipo": "lesao_corporal", "mes": 7, "total": 1163}, {"tipo": "ameaca", "mes": 8, "total": 2714}, {"tipo": "estupro", "mes": 8, "total": 174}, {"tipo": "feminicidio_consumado", "mes": 8, "total": 4}, {"tipo": "feminicidio_tentado", "mes": 8, "total": 27}, {"tipo": "geral", "mes": 8, "total": 4283}, {"tipo": "lesao_corporal", "mes": 8, "total": 1364}, {"tipo": "ameaca", "mes": 9, "total": 2460}, {"tipo": "estupro", "mes": 9, "total": 192}, {"tipo": "feminicidio_consumado", "mes": 9, "total": 5}, {"tipo": "feminicidio_tentado", "mes": 9, "total": 27}, {"tipo": "geral", "mes": 9, "total": 4085}, {"tipo": "lesao_corporal", "mes": 9, "total": 1401}, {"tipo": "ameaca", "mes": 10, "total": 2881}, {"tipo": "estupro", "mes": 10, "total": 240}, {"tipo": "feminicidio_consumado", "mes": 10, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 10, "total": 40}, {"tipo": "geral", "mes": 10, "total": 4801}, {"tipo": "lesao_corporal", "mes": 10, "total": 1634}, {"tipo": "ameaca", "mes": 11, "total": 2966}, {"tipo": "estupro", "mes": 11, "total": 219}, {"tipo": "feminicidio_consumado", "mes": 11, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 11, "total": 31}, {"tipo": "geral", "mes": 11, "total": 4895}, {"tipo": "lesao_corporal", "mes": 11, "total": 1673}, {"tipo": "ameaca", "mes": 12, "total": 3000}, {"tipo": "estupro", "mes": 12, "total": 202}, {"tipo": "feminicidio_consumado", "mes": 12, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 12, "total": 24}, {"tipo": "geral", "mes": 12, "total": 5085}, {"tipo": "lesao_corporal", "mes": 12, "total": 1853}], "2021": [{"tipo": "ameaca", "mes": 1, "total": 3418}, {"tipo": "estupro", "mes": 1, "total": 283}, {"tipo": "feminicidio_consumado", "mes": 1, "total": 11}, {"tipo": "feminicidio_tentado", "mes": 1, "total": 31}, {"tipo": "geral", "mes": 1, "total": 5685}, {"tipo": "lesao_corporal", "mes": 1, "total": 1942}, {"tipo": "ameaca", "mes": 2, "total": 2736}, {"tipo": "estupro", "mes": 2, "total": 230}, {"tipo": "feminicidio_consumado", "mes": 2, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 2, "total": 22}, {"tipo": "geral", "mes": 2, "total": 4584}, {"tipo": "lesao_corporal", "mes": 2, "total": 1590}, {"tipo": "ameaca", "mes": 3, "total": 2714}, {"tipo": "estupro", "mes": 3, "total": 194}, {"tipo": "feminicidio_consumado", "mes": 3, "total": 3}, {"tipo": "feminicidio_tentado", "mes": 3, "total": 29}, {"tipo": "geral", "mes": 3, "total": 4413}, {"tipo": "lesao_corporal", "mes": 3, "total": 1473}, {"tipo": "ameaca", "mes": 4, "total": 2616}, {"tipo": "estupro", "mes": 4, "total": 173}, {"tipo": "feminicidio_consumado", "mes": 4, "total": 14}, {"tipo": "feminicidio_tentado", "mes": 4, "total": 15}, {"tipo": "geral", "mes": 4, "total": 4206}, {"tipo": "lesao_corporal", "mes": 4, "total": 1388}, {"tipo": "ameaca", "mes": 5, "total": 2424}, {"tipo": "estupro", "mes": 5, "total": 162}, {"tipo": "feminicidio_consumado", "mes": 5, "total": 7}, {"tipo": "feminicidio_tentado", "mes": 5, "total": 9}, {"tipo": "geral", "mes": 5, "total": 3711}, {"tipo": "lesao_corporal", "mes": 5, "total": 1109}, {"tipo": "ameaca", "mes": 6, "total": 2266}, {"tipo": "estupro", "mes": 6, "total": 157}, {"tipo": "feminicidio_consumado", "mes": 6, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 6, "total": 17}, {"tipo": "geral", "mes": 6, "total": 3495}, {"tipo": "lesao_corporal", "mes": 6, "total": 1047}, {"tipo": "ameaca", "mes": 7, "total": 2654}, {"tipo": "estupro", "mes": 7, "total": 165}, {"tipo": "feminicidio_consumado", "mes": 7, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 7, "total": 18}, {"tipo": "geral", "mes": 7, "total": 4190}, {"tipo": "lesao_corporal", "mes": 7, "total": 1344}, {"tipo": "ameaca", "mes": 8, "total": 2696}, {"tipo": "estupro", "mes": 8, "total": 224}, {"tipo": "feminicidio_consumado", "mes": 8, "total": 14}, {"tipo": "feminicidio_tentado", "mes": 8, "total": 22}, {"tipo": "geral", "mes": 8, "total": 4385}, {"tipo": "lesao_corporal", "mes": 8, "total": 1429}, {"tipo": "ameaca", "mes": 9, "total": 2523}, {"tipo": "estupro", "mes": 9, "total": 189}, {"tipo": "feminicidio_consumado", "mes": 9, "total": 7}, {"tipo": "feminicidio_tentado", "mes": 9, "total": 21}, {"tipo": "geral", "mes": 9, "total": 4158}, {"tipo": "lesao_corporal", "mes": 9, "total": 1418}, {"tipo": "ameaca", "mes": 10, "total": 2849}, {"tipo": "estupro", "mes": 10, "total": 221}, {"tipo": "feminicidio_consumado", "mes": 10, "total": 3}, {"tipo": "feminicidio_tentado", "mes": 10, "total": 24}, {"tipo": "geral", "mes": 10, "total": 4739}, {"tipo": "lesao_corporal", "mes": 10, "total": 1642}, {"tipo": "ameaca", "mes": 11, "total": 2844}, {"tipo": "estupro", "mes": 11, "total": 226}, {"tipo": "feminicidio_consumado", "mes": 11, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 11, "total": 24}, {"tipo": "geral", "mes": 11, "total": 4774}, {"tipo": "lesao_corporal", "mes": 11, "total": 1672}, {"tipo": "ameaca", "mes": 12, "total": 3022}, {"tipo": "estupro", "mes": 12, "total": 231}, {"tipo": "feminicidio_consumado", "mes": 12, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 12, "total": 23}, {"tipo": "geral", "mes": 12, "total": 5235}, {"tipo": "lesao_corporal", "mes": 12, "total": 1953}], "2022": [{"tipo": "ameaca", "mes": 1, "total": 3082}, {"tipo": "estupro", "mes": 1, "total": 253}, {"tipo": "feminicidio_consumado", "mes": 1, "total": 12}, {"tipo": "feminicidio_tentado", "mes": 1, "total": 22}, {"tipo": "geral", "mes": 1, "total": 5233}, {"tipo": "lesao_corporal", "mes": 1, "total": 1864}, {"tipo": "ameaca", "mes": 2, "total": 2802}, {"tipo": "estupro", "mes": 2, "total": 181}, {"tipo": "feminicidio_consumado", "mes": 2, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 2, "total": 22}, {"tipo": "geral", "mes": 2, "total": 4654}, {"tipo": "lesao_corporal", "mes": 2, "total": 1640}, {"tipo": "ameaca", "mes": 3, "total": 2899}, {"tipo": "estupro", "mes": 3, "total": 225}, {"tipo": "feminicidio_consumado", "mes": 3, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 3, "total": 15}, {"tipo": "geral", "mes": 3, "total": 4707}, {"tipo": "lesao_corporal", "mes": 3, "total": 1560}, {"tipo": "ameaca", "mes": 4, "total": 2464}, {"tipo": "estupro", "mes": 4, "total": 214}, {"tipo": "feminicidio_consumado", "mes": 4, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 4, "total": 18}, {"tipo": "geral", "mes": 4, "total": 4120}, {"tipo": "lesao_corporal", "mes": 4, "total": 1414}, {"tipo": "ameaca", "mes": 5, "total": 2311}, {"tipo": "estupro", "mes": 5, "total": 220}, {"tipo": "feminicidio_consumado", "mes": 5, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 5, "total": 22}, {"tipo": "geral", "mes": 5, "total": 3768}, {"tipo": "lesao_corporal", "mes": 5, "total": 1205}, {"tipo": "ameaca", "mes": 6, "total": 2193}, {"tipo": "estupro", "mes": 6, "total": 197}, {"tipo": "feminicidio_consumado", "mes": 6, "total": 11}, {"tipo": "feminicidio_tentado", "mes": 6, "total": 17}, {"tipo": "geral", "mes": 6, "total": 3560}, {"tipo": "lesao_corporal", "mes": 6, "total": 1142}, {"tipo": "ameaca", "mes": 7, "total": 2506}, {"tipo": "estupro", "mes": 7, "total": 238}, {"tipo": "feminicidio_consumado", "mes": 7, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 7, "total": 21}, {"tipo": "geral", "mes": 7, "total": 4180}, {"tipo": "lesao_corporal", "mes": 7, "total": 1405}, {"tipo": "ameaca", "mes": 8, "total": 2515}, {"tipo": "estupro", "mes": 8, "total": 226}, {"tipo": "feminicidio_consumado", "mes": 8, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 8, "total": 25}, {"tipo": "geral", "mes": 8, "total": 4146}, {"tipo": "lesao_corporal", "mes": 8, "total": 1372}, {"tipo": "ameaca", "mes": 9, "total": 2333}, {"tipo": "estupro", "mes": 9, "total": 246}, {"tipo": "feminicidio_consumado", "mes": 9, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 9, "total": 19}, {"tipo": "geral", "mes": 9, "total": 3979}, {"tipo": "lesao_corporal", "mes": 9, "total": 1375}, {"tipo": "ameaca", "mes": 10, "total": 2651}, {"tipo": "estupro", "mes": 10, "total": 262}, {"tipo": "feminicidio_consumado", "mes": 10, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 10, "total": 24}, {"tipo": "geral", "mes": 10, "total": 4598}, {"tipo": "lesao_corporal", "mes": 10, "total": 1652}, {"tipo": "ameaca", "mes": 11, "total": 2631}, {"tipo": "estupro", "mes": 11, "total": 249}, {"tipo": "feminicidio_consumado", "mes": 11, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 11, "total": 35}, {"tipo": "geral", "mes": 11, "total": 4512}, {"tipo": "lesao_corporal", "mes": 11, "total": 1587}, {"tipo": "ameaca", "mes": 12, "total": 3002}, {"tipo": "estupro", "mes": 12, "total": 272}, {"tipo": "feminicidio_consumado", "mes": 12, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 12, "total": 23}, {"tipo": "geral", "mes": 12, "total": 5286}, {"tipo": "lesao_corporal", "mes": 12, "total": 1981}], "2023": [{"tipo": "ameaca", "mes": 1, "total": 3377}, {"tipo": "estupro", "mes": 1, "total": 318}, {"tipo": "feminicidio_consumado", "mes": 1, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 1, "total": 22}, {"tipo": "geral", "mes": 1, "total": 5809}, {"tipo": "lesao_corporal", "mes": 1, "total": 2083}, {"tipo": "ameaca", "mes": 2, "total": 2976}, {"tipo": "estupro", "mes": 2, "total": 238}, {"tipo": "feminicidio_consumado", "mes": 2, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 2, "total": 24}, {"tipo": "geral", "mes": 2, "total": 4943}, {"tipo": "lesao_corporal", "mes": 2, "total": 1699}, {"tipo": "ameaca", "mes": 3, "total": 3207}, {"tipo": "estupro", "mes": 3, "total": 235}, {"tipo": "feminicidio_consumado", "mes": 3, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 3, "total": 23}, {"tipo": "geral", "mes": 3, "total": 5345}, {"tipo": "lesao_corporal", "mes": 3, "total": 1871}, {"tipo": "ameaca", "mes": 4, "total": 2631}, {"tipo": "estupro", "mes": 4, "total": 211}, {"tipo": "feminicidio_consumado", "mes": 4, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 4, "total": 15}, {"tipo": "geral", "mes": 4, "total": 4389}, {"tipo": "lesao_corporal", "mes": 4, "total": 1526}, {"tipo": "ameaca", "mes": 5, "total": 2599}, {"tipo": "estupro", "mes": 5, "total": 254}, {"tipo": "feminicidio_consumado", "mes": 5, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 5, "total": 35}, {"tipo": "geral", "mes": 5, "total": 4308}, {"tipo": "lesao_corporal", "mes": 5, "total": 1414}, {"tipo": "ameaca", "mes": 6, "total": 2482}, {"tipo": "estupro", "mes": 6, "total": 211}, {"tipo": "feminicidio_consumado", "mes": 6, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 6, "total": 12}, {"tipo": "geral", "mes": 6, "total": 4078}, {"tipo": "lesao_corporal", "mes": 6, "total": 1364}, {"tipo": "ameaca", "mes": 7, "total": 2576}, {"tipo": "estupro", "mes": 7, "total": 190}, {"tipo": "feminicidio_consumado", "mes": 7, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 7, "total": 17}, {"tipo": "geral", "mes": 7, "total": 4260}, {"tipo": "lesao_corporal", "mes": 7, "total": 1468}, {"tipo": "ameaca", "mes": 8, "total": 2725}, {"tipo": "estupro", "mes": 8, "total": 255}, {"tipo": "feminicidio_consumado", "mes": 8, "total": 5}, {"tipo": "feminicidio_tentado", "mes": 8, "total": 17}, {"tipo": "geral", "mes": 8, "total": 4485}, {"tipo": "lesao_corporal", "mes": 8, "total": 1483}, {"tipo": "ameaca", "mes": 9, "total": 2460}, {"tipo": "estupro", "mes": 9, "total": 207}, {"tipo": "feminicidio_consumado", "mes": 9, "total": 4}, {"tipo": "feminicidio_tentado", "mes": 9, "total": 16}, {"tipo": "geral", "mes": 9, "total": 4262}, {"tipo": "lesao_corporal", "mes": 9, "total": 1575}, {"tipo": "ameaca", "mes": 10, "total": 2649}, {"tipo": "estupro", "mes": 10, "total": 238}, {"tipo": "feminicidio_consumado", "mes": 10, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 10, "total": 26}, {"tipo": "geral", "mes": 10, "total": 4524}, {"tipo": "lesao_corporal", "mes": 10, "total": 1602}, {"tipo": "ameaca", "mes": 11, "total": 2799}, {"tipo": "estupro", "mes": 11, "total": 215}, {"tipo": "feminicidio_consumado", "mes": 11, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 11, "total": 11}, {"tipo": "geral", "mes": 11, "total": 4776}, {"tipo": "lesao_corporal", "mes": 11, "total": 1745}, {"tipo": "ameaca", "mes": 12, "total": 2972}, {"tipo": "estupro", "mes": 12, "total": 248}, {"tipo": "feminicidio_consumado", "mes": 12, "total": 8}, {"tipo": "feminicidio_tentado", "mes": 12, "total": 19}, {"tipo": "geral", "mes": 12, "total": 5320}, {"tipo": "lesao_corporal", "mes": 12, "total": 2073}], "2024": [{"tipo": "ameaca", "mes": 1, "total": 3169}, {"tipo": "estupro", "mes": 1, "total": 260}, {"tipo": "feminicidio_consumado", "mes": 1, "total": 12}, {"tipo": "feminicidio_tentado", "mes": 1, "total": 16}, {"tipo": "geral", "mes": 1, "total": 5227}, {"tipo": "lesao_corporal", "mes": 1, "total": 1770}, {"tipo": "ameaca", "mes": 2, "total": 3086}, {"tipo": "estupro", "mes": 2, "total": 227}, {"tipo": "feminicidio_consumado", "mes": 2, "total": 7}, {"tipo": "feminicidio_tentado", "mes": 2, "total": 19}, {"tipo": "geral", "mes": 2, "total": 5124}, {"tipo": "lesao_corporal", "mes": 2, "total": 1785}, {"tipo": "ameaca", "mes": 3, "total": 3034}, {"tipo": "estupro", "mes": 3, "total": 246}, {"tipo": "feminicidio_consumado", "mes": 3, "total": 5}, {"tipo": "feminicidio_tentado", "mes": 3, "total": 24}, {"tipo": "geral", "mes": 3, "total": 5248}, {"tipo": "lesao_corporal", "mes": 3, "total": 1939}, {"tipo": "ameaca", "mes": 4, "total": 2509}, {"tipo": "estupro", "mes": 4, "total": 179}, {"tipo": "feminicidio_consumado", "mes": 4, "total": 1}, {"tipo": "feminicidio_tentado", "mes": 4, "total": 13}, {"tipo": "geral", "mes": 4, "total": 4123}, {"tipo": "lesao_corporal", "mes": 4, "total": 1421}, {"tipo": "ameaca", "mes": 5, "total": 1894}, {"tipo": "estupro", "mes": 5, "total": 170}, {"tipo": "feminicidio_consumado", "mes": 5, "total": 3}, {"tipo": "feminicidio_tentado", "mes": 5, "total": 16}, {"tipo": "geral", "mes": 5, "total": 3191}, {"tipo": "lesao_corporal", "mes": 5, "total": 1108}, {"tipo": "ameaca", "mes": 6, "total": 2337}, {"tipo": "estupro", "mes": 6, "total": 191}, {"tipo": "feminicidio_consumado", "mes": 6, "total": 3}, {"tipo": "feminicidio_tentado", "mes": 6, "total": 27}, {"tipo": "geral", "mes": 6, "total": 3885}, {"tipo": "lesao_corporal", "mes": 6, "total": 1327}, {"tipo": "ameaca", "mes": 7, "total": 2252}, {"tipo": "estupro", "mes": 7, "total": 218}, {"tipo": "feminicidio_consumado", "mes": 7, "total": 5}, {"tipo": "feminicidio_tentado", "mes": 7, "total": 19}, {"tipo": "geral", "mes": 7, "total": 3720}, {"tipo": "lesao_corporal", "mes": 7, "total": 1226}, {"tipo": "ameaca", "mes": 8, "total": 2533}, {"tipo": "estupro", "mes": 8, "total": 194}, {"tipo": "feminicidio_consumado", "mes": 8, "total": 5}, {"tipo": "feminicidio_tentado", "mes": 8, "total": 15}, {"tipo": "geral", "mes": 8, "total": 4163}, {"tipo": "lesao_corporal", "mes": 8, "total": 1416}, {"tipo": "ameaca", "mes": 9, "total": 2514}, {"tipo": "estupro", "mes": 9, "total": 198}, {"tipo": "feminicidio_consumado", "mes": 9, "total": 7}, {"tipo": "feminicidio_tentado", "mes": 9, "total": 17}, {"tipo": "geral", "mes": 9, "total": 4230}, {"tipo": "lesao_corporal", "mes": 9, "total": 1494}, {"tipo": "ameaca", "mes": 10, "total": 2616}, {"tipo": "estupro", "mes": 10, "total": 204}, {"tipo": "feminicidio_consumado", "mes": 10, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 10, "total": 23}, {"tipo": "geral", "mes": 10, "total": 4468}, {"tipo": "lesao_corporal", "mes": 10, "total": 1615}, {"tipo": "ameaca", "mes": 11, "total": 2818}, {"tipo": "estupro", "mes": 11, "total": 218}, {"tipo": "feminicidio_consumado", "mes": 11, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 11, "total": 25}, {"tipo": "geral", "mes": 11, "total": 4817}, {"tipo": "lesao_corporal", "mes": 11, "total": 1746}, {"tipo": "ameaca", "mes": 12, "total": 2761}, {"tipo": "estupro", "mes": 12, "total": 217}, {"tipo": "feminicidio_consumado", "mes": 12, "total": 5}, {"tipo": "feminicidio_tentado", "mes": 12, "total": 22}, {"tipo": "geral", "mes": 12, "total": 4905}, {"tipo": "lesao_corporal", "mes": 12, "total": 1900}], "2025": [{"tipo": "ameaca", "mes": 1, "total": 2975}, {"tipo": "estupro", "mes": 1, "total": 228}, {"tipo": "feminicidio_consumado", "mes": 1, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 1, "total": 22}, {"tipo": "geral", "mes": 1, "total": 5140}, {"tipo": "lesao_corporal", "mes": 1, "total": 1906}, {"tipo": "ameaca", "mes": 2, "total": 2900}, {"tipo": "estupro", "mes": 2, "total": 210}, {"tipo": "feminicidio_consumado", "mes": 2, "total": 4}, {"tipo": "feminicidio_tentado", "mes": 2, "total": 25}, {"tipo": "geral", "mes": 2, "total": 4919}, {"tipo": "lesao_corporal", "mes": 2, "total": 1780}, {"tipo": "ameaca", "mes": 3, "total": 2927}, {"tipo": "estupro", "mes": 3, "total": 184}, {"tipo": "feminicidio_consumado", "mes": 3, "total": 3}, {"tipo": "feminicidio_tentado", "mes": 3, "total": 32}, {"tipo": "geral", "mes": 3, "total": 4930}, {"tipo": "lesao_corporal", "mes": 3, "total": 1784}, {"tipo": "ameaca", "mes": 4, "total": 2633}, {"tipo": "estupro", "mes": 4, "total": 190}, {"tipo": "feminicidio_consumado", "mes": 4, "total": 11}, {"tipo": "feminicidio_tentado", "mes": 4, "total": 17}, {"tipo": "geral", "mes": 4, "total": 4229}, {"tipo": "lesao_corporal", "mes": 4, "total": 1378}, {"tipo": "ameaca", "mes": 5, "total": 2615}, {"tipo": "estupro", "mes": 5, "total": 198}, {"tipo": "feminicidio_consumado", "mes": 5, "total": 3}, {"tipo": "feminicidio_tentado", "mes": 5, "total": 20}, {"tipo": "geral", "mes": 5, "total": 4212}, {"tipo": "lesao_corporal", "mes": 5, "total": 1376}, {"tipo": "ameaca", "mes": 6, "total": 2187}, {"tipo": "estupro", "mes": 6, "total": 191}, {"tipo": "feminicidio_consumado", "mes": 6, "total": 6}, {"tipo": "feminicidio_tentado", "mes": 6, "total": 18}, {"tipo": "geral", "mes": 6, "total": 3552}, {"tipo": "lesao_corporal", "mes": 6, "total": 1150}, {"tipo": "ameaca", "mes": 7, "total": 2398}, {"tipo": "estupro", "mes": 7, "total": 174}, {"tipo": "feminicidio_consumado", "mes": 7, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 7, "total": 24}, {"tipo": "geral", "mes": 7, "total": 3795}, {"tipo": "lesao_corporal", "mes": 7, "total": 1189}, {"tipo": "ameaca", "mes": 8, "total": 2558}, {"tipo": "estupro", "mes": 8, "total": 250}, {"tipo": "feminicidio_consumado", "mes": 8, "total": 10}, {"tipo": "feminicidio_tentado", "mes": 8, "total": 30}, {"tipo": "geral", "mes": 8, "total": 4198}, {"tipo": "lesao_corporal", "mes": 8, "total": 1350}, {"tipo": "ameaca", "mes": 9, "total": 2437}, {"tipo": "estupro", "mes": 9, "total": 204}, {"tipo": "feminicidio_consumado", "mes": 9, "total": 4}, {"tipo": "feminicidio_tentado", "mes": 9, "total": 16}, {"tipo": "geral", "mes": 9, "total": 3981}, {"tipo": "lesao_corporal", "mes": 9, "total": 1320}, {"tipo": "ameaca", "mes": 10, "total": 2585}, {"tipo": "estupro", "mes": 10, "total": 207}, {"tipo": "feminicidio_consumado", "mes": 10, "total": 11}, {"tipo": "feminicidio_tentado", "mes": 10, "total": 18}, {"tipo": "geral", "mes": 10, "total": 4374}, {"tipo": "lesao_corporal", "mes": 10, "total": 1553}, {"tipo": "ameaca", "mes": 11, "total": 2666}, {"tipo": "estupro", "mes": 11, "total": 223}, {"tipo": "feminicidio_consumado", "mes": 11, "total": 4}, {"tipo": "feminicidio_tentado", "mes": 11, "total": 23}, {"tipo": "geral", "mes": 11, "total": 4612}, {"tipo": "lesao_corporal", "mes": 11, "total": 1696}, {"tipo": "ameaca", "mes": 12, "total": 3070}, {"tipo": "estupro", "mes": 12, "total": 191}, {"tipo": "feminicidio_consumado", "mes": 12, "total": 5}, {"tipo": "feminicidio_tentado", "mes": 12, "total": 18}, {"tipo": "geral", "mes": 12, "total": 5302}, {"tipo": "lesao_corporal", "mes": 12, "total": 2018}], "2026": [{"tipo": "ameaca", "mes": 1, "total": 3129}, {"tipo": "estupro", "mes": 1, "total": 217}, {"tipo": "feminicidio_consumado", "mes": 1, "total": 11}, {"tipo": "feminicidio_tentado", "mes": 1, "total": 30}, {"tipo": "geral", "mes": 1, "total": 5143}, {"tipo": "lesao_corporal", "mes": 1, "total": 1756}, {"tipo": "ameaca", "mes": 2, "total": 2758}, {"tipo": "estupro", "mes": 2, "total": 162}, {"tipo": "feminicidio_consumado", "mes": 2, "total": 9}, {"tipo": "feminicidio_tentado", "mes": 2, "total": 30}, {"tipo": "geral", "mes": 2, "total": 4529}, {"tipo": "lesao_corporal", "mes": 2, "total": 1570}, {"tipo": "ameaca", "mes": 3, "total": 2922}, {"tipo": "estupro", "mes": 3, "total": 158}, {"tipo": "feminicidio_consumado", "mes": 3, "total": 4}, {"tipo": "feminicidio_tentado", "mes": 3, "total": 23}, {"tipo": "geral", "mes": 3, "total": 4827}, {"tipo": "lesao_corporal", "mes": 3, "total": 1720}, {"tipo": "ameaca", "mes": 4, "total": 0}, {"tipo": "estupro", "mes": 4, "total": 0}, {"tipo": "feminicidio_consumado", "mes": 4, "total": 0}, {"tipo": "feminicidio_tentado", "mes": 4, "total": 0}, {"tipo": "geral", "mes": 4, "total": 0}, {"tipo": "lesao_corporal", "mes": 4, "total": 0}, {"tipo": "ameaca", "mes": 5, "total": 0}, {"tipo": "estupro", "mes": 5, "total": 0}, {"tipo": "feminicidio_consumado", "mes": 5, "total": 0}, {"tipo": "feminicidio_tentado", "mes": 5, "total": 0}, {"tipo": "geral", "mes": 5, "total": 0}, {"tipo": "lesao_corporal", "mes": 5, "total": 0}, {"tipo": "ameaca", "mes": 6, "total": 0}, {"tipo": "estupro", "mes": 6, "total": 0}, {"tipo": "feminicidio_consumado", "mes": 6, "total": 0}, {"tipo": "feminicidio_tentado", "mes": 6, "total": 0}, {"tipo": "geral", "mes": 6, "total": 0}, {"tipo": "lesao_corporal", "mes": 6, "total": 0}, {"tipo": "ameaca", "mes": 7, "total": 0}, {"tipo": "estupro", "mes": 7, "total": 0}, {"tipo": "feminicidio_consumado", "mes": 7, "total": 0}, {"tipo": "feminicidio_tentado", "mes": 7, "total": 0}, {"tipo": "geral", "mes": 7, "total": 0}, {"tipo": "lesao_corporal", "mes": 7, "total": 0}, {"tipo": "ameaca", "mes": 8, "total": 0}, {"tipo": "estupro", "mes": 8, "total": 0}, {"tipo": "feminicidio_consumado", "mes": 8, "total": 0}, {"tipo": "feminicidio_tentado", "mes": 8, "total": 0}, {"tipo": "geral", "mes": 8, "total": 0}, {"tipo": "lesao_corporal", "mes": 8, "total": 0}, {"tipo": "ameaca", "mes": 9, "total": 0}, {"tipo": "estupro", "mes": 9, "total": 0}, {"tipo": "feminicidio_consumado", "mes": 9, "total": 0}, {"tipo": "feminicidio_tentado", "mes": 9, "total": 0}, {"tipo": "geral", "mes": 9, "total": 0}, {"tipo": "lesao_corporal", "mes": 9, "total": 0}, {"tipo": "ameaca", "mes": 10, "total": 0}, {"tipo": "estupro", "mes": 10, "total": 0}, {"tipo": "feminicidio_consumado", "mes": 10, "total": 0}, {"tipo": "feminicidio_tentado", "mes": 10, "total": 0}, {"tipo": "geral", "mes": 10, "total": 0}, {"tipo": "lesao_corporal", "mes": 10, "total": 0}, {"tipo": "ameaca", "mes": 11, "total": 0}, {"tipo": "estupro", "mes": 11, "total": 0}, {"tipo": "feminicidio_consumado", "mes": 11, "total": 0}, {"tipo": "feminicidio_tentado", "mes": 11, "total": 0}, {"tipo": "geral", "mes": 11, "total": 0}, {"tipo": "lesao_corporal", "mes": 11, "total": 0}, {"tipo": "ameaca", "mes": 12, "total": 0}, {"tipo": "estupro", "mes": 12, "total": 0}, {"tipo": "feminicidio_consumado", "mes": 12, "total": 0}, {"tipo": "feminicidio_tentado", "mes": 12, "total": 0}, {"tipo": "geral", "mes": 12, "total": 0}, {"tipo": "lesao_corporal", "mes": 12, "total": 0}]};
+window.__MUN_IDX__   = {"ABSOLUTA": 0, "ACEGUA": 1, "AGUA SANTA": 2, "AGUDO": 3, "AJURICABA": 4, "ALECRIM": 5, "ALEGRETE": 6, "ALEGRIA": 7, "ALMIRANTE TAMANDARE DO SUL": 8, "ALPESTRE": 9, "ALTO ALEGRE": 10, "ALTO FELIZ": 11, "ALVORADA": 12, "AMARAL FERRADOR": 13, "AMEAÇA": 14, "AMETISTA DO SUL": 15, "ANDRE DA ROCHA": 16, "ANTA GORDA": 17, "ANTONIO PRADO": 18, "ARAMBARE": 19, "ARARICA": 20, "ARATIBA": 21, "ARROIO DO MEIO": 22, "ARROIO DO PADRE": 23, "ARROIO DO SAL": 24, "ARROIO DO TIGRE": 25, "ARROIO DOS RATOS": 26, "ARROIO GRANDE": 27, "ARVOREZINHA": 28, "AUGUSTO PESTANA": 29, "AUREA": 30, "BAGE": 31, "BALNEARIO PINHAL": 32, "BARAO": 33, "BARAO DO COTEGIPE": 34, "BARAO DO TRIUNFO": 35, "BARRA DO GUARITA": 36, "BARRA DO QUARAI": 37, "BARRA DO RIBEIRO": 38, "BARRA DO RIO AZUL": 39, "BARRA FUNDA": 40, "BARRACAO": 41, "BARROS CASSAL": 42, "BENJAMIN CONSTANT DO SUL": 43, "BENTO GONCALVES": 44, "BOA VISTA DAS MISSOES": 45, "BOA VISTA DO BURICA": 46, "BOA VISTA DO CADEADO": 47, "BOA VISTA DO INCRA": 48, "BOA VISTA DO SUL": 49, "BOM JESUS": 50, "BOM PRINCIPIO": 51, "BOM PROGRESSO": 52, "BOM RETIRO DO SUL": 53, "BOQUEIRAO DO LEAO": 54, "BOSSOROCA": 55, "BOZANO": 56, "BRAGA": 57, "BROCHIER": 58, "BUTIA": 59, "CACAPAVA DO SUL": 60, "CACEQUI": 61, "CACHOEIRA DO SUL": 62, "CACHOEIRINHA": 63, "CACIQUE DOBLE": 64, "CAIBATE": 65, "CAICARA": 66, "CAMAQUA": 67, "CAMARGO": 68, "CAMBARA DO SUL": 69, "CAMPESTRE DA SERRA": 70, "CAMPINA DAS MISSOES": 71, "CAMPINAS DO SUL": 72, "CAMPO BOM": 73, "CAMPO NOVO": 74, "CAMPOS BORGES": 75, "CANDELARIA": 76, "CANDIDO GODOI": 77, "CANDIOTA": 78, "CANELA": 79, "CANGUCU": 80, "CANOAS": 81, "CANUDOS DO VALE": 82, "CAPAO BONITO DO SUL": 83, "CAPAO DA CANOA": 84, "CAPAO DO CIPO": 85, "CAPAO DO LEAO": 86, "CAPELA DE SANTANA": 87, "CAPITAO": 88, "CAPIVARI DO SUL": 89, "CARAA": 90, "CARAZINHO": 91, "CARLOS BARBOSA": 92, "CARLOS GOMES": 93, "CASCA": 94, "CASEIROS": 95, "CATUIPE": 96, "CAXIAS DO SUL": 97, "CENTENARIO": 98, "CERRITO": 99, "CERRO BRANCO": 100, "CERRO GRANDE": 101, "CERRO GRANDE DO SUL": 102, "CERRO LARGO": 103, "CHAPADA": 104, "CHARQUEADAS": 105, "CHARRUA": 106, "CHIAPETTA": 107, "CHUI": 108, "CHUVISCA": 109, "CIDREIRA": 110, "CIRIACO": 111, "COLINAS": 112, "COLORADO": 113, "CONDOR": 114, "CONSTANTINA": 115, "COQUEIRO BAIXO": 116, "COQUEIROS DO SUL": 117, "CORONEL BARROS": 118, "CORONEL BICACO": 119, "CORONEL PILAR": 120, "COTIPORA": 121, "COXILHA": 122, "CRISSIUMAL": 123, "CRISTAL": 124, "CRISTAL DO SUL": 125, "CRUZ ALTA": 126, "CRUZALTENSE": 127, "CRUZEIRO DO SUL": 128, "DAVID CANABARRO": 129, "DELITOS ENQUADRADOS NA LEI MARIA DA PENHA": 130, "DERRUBADAS": 131, "DEZESSEIS DE NOVEMBRO": 132, "DIFERENÇA": 133, "DILERMANDO DE AGUIAR": 134, "DOIS IRMAOS": 135, "DOIS IRMAOS DAS MISSOES": 136, "DOIS LAJEADOS": 137, "DOM FELICIANO": 138, "DOM PEDRITO": 139, "DOM PEDRO DE ALCANTARA": 140, "DONA FRANCISCA": 141, "DOUTOR RICARDO": 142, "DR MAURICIO CARDOSO": 143, "ELDORADO DO SUL": 144, "ENCANTADO": 145, "ENCRUZILHADA DO SUL": 146, "ENGENHO VELHO": 147, "ENTRE IJUIS": 148, "ENTRE RIOS DO SUL": 149, "EREBANGO": 150, "ERECHIM": 151, "ERNESTINA": 152, "ERVAL GRANDE": 153, "ERVAL SECO": 154, "ESMERALDA": 155, "ESPERANCA DO SUL": 156, "ESPUMOSO": 157, "ESTACAO": 158, "ESTANCIA VELHA": 159, "ESTEIO": 160, "ESTRELA": 161, "ESTRELA VELHA": 162, "ESTUPRO": 163, "EUGENIO DE CASTRO": 164, "FAGUNDES VARELA": 165, "FARROUPILHA": 166, "FAXINAL DO SOTURNO": 167, "FAXINALZINHO": 168, "FAZENDA VILA NOVA": 169, "FELIZ": 170, "FEMICÍDIO CONSUMADO": 171, "FEMICÍDIO TENTADO": 172, "FEMINICÍDIO CONSUMADO": 173, "FEMINICÍDIO TENTADO": 174, "FLORES DA CUNHA": 175, "FLORIANO PEIXOTO": 176, "FONTE: SIP/PROCERGS - ATUALIZADO EM 21/2/2020.": 177, "FONTE: SIP/PROCERGS - ATUALIZADO EM 4/12/2023.": 178, "FONTE: SIP/PROCERGS - ATUALIZADO EM 5/1/2026.": 179, "FONTE: SIP/PROCERGS - ATUALIZADO EM 5/5/2023.": 180, "FONTE: SIP/PROCERGS - ATUALIZADO EM 6/1/2025.": 181, "FONTE: SIP/PROCERGS - ATUALIZADO EM 7/1/2019.": 182, "FONTE: SIP/PROCERGS - ATUALIZADO EM 7/4/2026.": 183, "FONTE: SIP/PROCERGS - ATUALIZADO EM 9/1/2018.": 184, "FONTE: SIP/PROCERGS - ATUALIZADO EM 9/1/2018. DADOS REVISADOS EM 21/08/2019.": 185, "FONTOURA XAVIER": 186, "FORMIGUEIRO": 187, "FORQUETINHA": 188, "FORTALEZA DOS VALOS": 189, "FREDERICO WESTPHALEN": 190, "GARIBALDI": 191, "GARRUCHOS": 192, "GAURAMA": 193, "GENERAL CAMARA": 194, "GENTIL": 195, "GETULIO VARGAS": 196, "GIRUA": 197, "GLORINHA": 198, "GRAMADO": 199, "GRAMADO DOS LOUREIROS": 200, "GRAMADO XAVIER": 201, "GRAVATAI": 202, "GUABIJU": 203, "GUAIBA": 204, "GUAPORE": 205, "GUARANI DAS MISSOES": 206, "HARMONIA": 207, "HERVAL": 208, "HERVEIRAS": 209, "HORIZONTINA": 210, "HULHA NEGRA": 211, "HUMAITA": 212, "IBARAMA": 213, "IBIACA": 214, "IBIRAIARAS": 215, "IBIRAPUITA": 216, "IBIRUBA": 217, "IGREJINHA": 218, "IJUI": 219, "ILOPOLIS": 220, "IMBE": 221, "IMIGRANTE": 222, "INDEPENDENCIA": 223, "INHACORA": 224, "IPE": 225, "IPIRANGA DO SUL": 226, "IRAI": 227, "ITAARA": 228, "ITACURUBI": 229, "ITAPUCA": 230, "ITAQUI": 231, "ITATI": 232, "ITATIBA DO SUL": 233, "IVORA": 234, "IVOTI": 235, "JABOTICABA": 236, "JACUIZINHO": 237, "JACUTINGA": 238, "JAGUARAO": 239, "JAGUARI": 240, "JAQUIRANA": 241, "JARI": 242, "JOIA": 243, "JULIO DE CASTILHOS": 244, "LAGOA BONITA DO SUL": 245, "LAGOA DOS TRES CANTOS": 246, "LAGOA VERMELHA": 247, "LAGOAO": 248, "LAJEADO": 249, "LAJEADO DO BUGRE": 250, "LAVRAS DO SUL": 251, "LESÃO CORPORAL": 252, "LIBERATO SALZANO": 253, "LINDOLFO COLLOR": 254, "LINHA NOVA": 255, "MACAMBARA": 256, "MACHADINHO": 257, "MAMPITUBA": 258, "MANOEL VIANA": 259, "MAQUINE": 260, "MARATA": 261, "MARAU": 262, "MARCELINO RAMOS": 263, "MARIANA PIMENTEL": 264, "MARIANO MORO": 265, "MARQUES DE SOUZA": 266, "MATA": 267, "MATO CASTELHANO": 268, "MATO LEITAO": 269, "MATO QUEIMADO": 270, "MAXIMILIANO DE ALMEIDA": 271, "MINAS DO LEAO": 272, "MIRAGUAI": 273, "MONTAURI": 274, "MONTE ALEGRE DOS CAMPOS": 275, "MONTE BELO DO SUL": 276, "MONTENEGRO": 277, "MORMACO": 278, "MORRINHOS DO SUL": 279, "MORRO REDONDO": 280, "MORRO REUTER": 281, "MOSTARDAS": 282, "MUCUM": 283, "MUITOS CAPOES": 284, "MULITERNO": 285, "NAO ME TOQUE": 286, "NICOLAU VERGUEIRO": 287, "NONOAI": 288, "NOTAS:": 289, "NOVA ALVORADA": 290, "NOVA ARACA": 291, "NOVA BASSANO": 292, "NOVA BOA VISTA": 293, "NOVA BRESCIA": 294, "NOVA CANDELARIA": 295, "NOVA ESPERANCA DO SUL": 296, "NOVA HARTZ": 297, "NOVA PADUA": 298, "NOVA PALMA": 299, "NOVA PETROPOLIS": 300, "NOVA PRATA": 301, "NOVA RAMADA": 302, "NOVA ROMA DO SUL": 303, "NOVA SANTA RITA": 304, "NOVO BARREIRO": 305, "NOVO CABRAIS": 306, "NOVO HAMBURGO": 307, "NOVO MACHADO": 308, "NOVO TIRADENTES": 309, "NOVO XINGU": 310, "NÃO INFORMADO": 311, "OBSERVAÇÃO:": 312, "OBSERVAÇÕES:": 313, "OSORIO": 314, "PAIM FILHO": 315, "PALMARES DO SUL": 316, "PALMEIRA DAS MISSOES": 317, "PALMITINHO": 318, "PANAMBI": 319, "PANTANO GRANDE": 320, "PARAI": 321, "PARAISO DO SUL": 322, "PARECI NOVO": 323, "PAROBE": 324, "PASSA SETE": 325, "PASSO DO SOBRADO": 326, "PASSO FUNDO": 327, "PAULO BENTO": 328, "PAVERAMA": 329, "PEDRAS ALTAS": 330, "PEDRO OSORIO": 331, "PEJUCARA": 332, "PELOTAS": 333, "PICADA CAFE": 334, "PINHAL": 335, "PINHAL DA SERRA": 336, "PINHAL GRANDE": 337, "PINHEIRINHO DO VALE": 338, "PINHEIRO MACHADO": 339, "PINTO BANDEIRA": 340, "PIRAPO": 341, "PIRATINI": 342, "PLANALTO": 343, "POCO DAS ANTAS": 344, "PONTAO": 345, "PONTE PRETA": 346, "PORTAO": 347, "PORTO ALEGRE": 348, "PORTO LUCENA": 349, "PORTO MAUA": 350, "PORTO VERA CRUZ": 351, "PORTO XAVIER": 352, "POUSO NOVO": 353, "PRESIDENTE LUCENA": 354, "PROGRESSO": 355, "PROTASIO ALVES": 356, "PUTINGA": 357, "QUARAI": 358, "QUATRO IRMAOS": 359, "QUEVEDOS": 360, "QUINZE DE NOVEMBRO": 361, "REDENTORA": 362, "RELATIVA": 363, "RELVADO": 364, "RESTINGA SECA": 365, "RIO DOS INDIOS": 366, "RIO GRANDE": 367, "RIO PARDO": 368, "RIOZINHO": 369, "ROCA SALES": 370, "RODEIO BONITO": 371, "ROLADOR": 372, "ROLANTE": 373, "RONDA ALTA": 374, "RONDINHA": 375, "ROQUE GONZALES": 376, "ROSARIO DO SUL": 377, "SAGRADA FAMILIA": 378, "SALDANHA MARINHO": 379, "SALTO DO JACUI": 380, "SALVADOR DAS MISSOES": 381, "SALVADOR DO SUL": 382, "SANANDUVA": 383, "SANTA BARBARA DO SUL": 384, "SANTA CECILIA DO SUL": 385, "SANTA CLARA DO SUL": 386, "SANTA CRUZ DO SUL": 387, "SANTA MARGARIDA DO SUL": 388, "SANTA MARIA": 389, "SANTA MARIA DO HERVAL": 390, "SANTA ROSA": 391, "SANTA TEREZA": 392, "SANTA VITORIA DO PALMAR": 393, "SANTANA DA BOA VISTA": 394, "SANTANA DO LIVRAMENTO": 395, "SANTIAGO": 396, "SANTO ANGELO": 397, "SANTO ANTONIO DA PATRULHA": 398, "SANTO ANTONIO DAS MISSOES": 399, "SANTO ANTONIO DO PALMA": 400, "SANTO ANTONIO DO PLANALTO": 401, "SANTO AUGUSTO": 402, "SANTO CRISTO": 403, "SANTO EXPEDITO DO SUL": 404, "SAO BORJA": 405, "SAO DOMINGOS DO SUL": 406, "SAO FRANCISCO DE ASSIS": 407, "SAO FRANCISCO DE PAULA": 408, "SAO GABRIEL": 409, "SAO JERONIMO": 410, "SAO JOAO DA URTIGA": 411, "SAO JOAO DO POLESINE": 412, "SAO JORGE": 413, "SAO JOSE DAS MISSOES": 414, "SAO JOSE DO HERVAL": 415, "SAO JOSE DO HORTENCIO": 416, "SAO JOSE DO INHACORA": 417, "SAO JOSE DO NORTE": 418, "SAO JOSE DO OURO": 419, "SAO JOSE DO SUL": 420, "SAO JOSE DOS AUSENTES": 421, "SAO LEOPOLDO": 422, "SAO LOURENCO DO SUL": 423, "SAO LUIZ GONZAGA": 424, "SAO MARCOS": 425, "SAO MARTINHO": 426, "SAO MARTINHO DA SERRA": 427, "SAO MIGUEL DAS MISSOES": 428, "SAO NICOLAU": 429, "SAO PAULO DAS MISSOES": 430, "SAO PEDRO DA SERRA": 431, "SAO PEDRO DAS MISSOES": 432, "SAO PEDRO DO BUTIA": 433, "SAO PEDRO DO SUL": 434, "SAO SEBASTIAO DO CAI": 435, "SAO SEPE": 436, "SAO VALENTIM": 437, "SAO VALENTIM DO SUL": 438, "SAO VALERIO DO SUL": 439, "SAO VENDELINO": 440, "SAO VICENTE DO SUL": 441, "SAPIRANGA": 442, "SAPUCAIA DO SUL": 443, "SARANDI": 444, "SEBERI": 445, "SEDE NOVA": 446, "SEGREDO": 447, "SELBACH": 448, "SENADOR SALGADO FILHO": 449, "SENTINELA DO SUL": 450, "SERAFINA CORREA": 451, "SERIO": 452, "SERTAO": 453, "SERTAO SANTANA": 454, "SETE DE SETEMBRO": 455, "SEVERIANO DE ALMEIDA": 456, "SILVEIRA MARTINS": 457, "SINIMBU": 458, "SOBRADINHO": 459, "SOLEDADE": 460, "TABAI": 461, "TAPEJARA": 462, "TAPERA": 463, "TAPES": 464, "TAQUARA": 465, "TAQUARI": 466, "TAQUARUCU DO SUL": 467, "TAVARES": 468, "TENENTE PORTELA": 469, "TERRA DE AREIA": 470, "TEUTONIA": 471, "TIO HUGO": 472, "TIRADENTES DO SUL": 473, "TOROPI": 474, "TORRES": 475, "TRAMANDAI": 476, "TRAVESSEIRO": 477, "TRES ARROIOS": 478, "TRES CACHOEIRAS": 479, "TRES COROAS": 480, "TRES DE MAIO": 481, "TRES FORQUILHAS": 482, "TRES PALMEIRAS": 483, "TRES PASSOS": 484, "TRINDADE DO SUL": 485, "TRIUNFO": 486, "TUCUNDUVA": 487, "TUNAS": 488, "TUPANCI DO SUL": 489, "TUPANCIRETA": 490, "TUPANDI": 491, "TUPARENDI": 492, "TURUCU": 493, "UBIRETAMA": 494, "UNIAO DA SERRA": 495, "UNISTALDA": 496, "URUGUAIANA": 497, "VACARIA": 498, "VALE DO SOL": 499, "VALE REAL": 500, "VALE VERDE": 501, "VANINI": 502, "VARIAÇÃO DE INDICADORES ENTRE 2016 E 2017": 503, "VENANCIO AIRES": 504, "VERA CRUZ": 505, "VERANOPOLIS": 506, "VESPASIANO CORREA": 507, "VIADUTOS": 508, "VIAMAO": 509, "VICENTE DUTRA": 510, "VICTOR GRAEFF": 511, "VILA FLORES": 512, "VILA LANGARO": 513, "VILA MARIA": 514, "VILA NOVA DO SUL": 515, "VISTA ALEGRE": 516, "VISTA ALEGRE DO PRATA": 517, "VISTA GAUCHA": 518, "VITORIA DAS MISSOES": 519, "WESTFALIA": 520, "XANGRILA": 521};
+</script>
+</body>
+</html>

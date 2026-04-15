@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ':*)",
+      "Bash(py --version)",
+      "Bash(py -c ':*)",
+      "Bash(py -m pip install openpyxl pandas)",
+      "Bash(py artefacts/load_data.py)",
+      "Bash(py -m pip install psycopg2-binary)",
+      "Bash(docker compose:*)",
+      "Bash(docker info:*)",
+      "Bash(wsl --version)",
+      "Bash(wsl --status)",
+      "Bash(sc query:*)",
+      "Bash(pip install:*)",
+      "Bash(python load_data.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python load_data.py)",
+      "Bash(docker exec feminicidio_db:*)",
+      "Bash(python -c ':*)",
+      "Bash(python -c \"import os; print\\(os.getcwd\\(\\)\\)\")",
+      "Bash(python -c \"import os; print\\(os.path.abspath\\('.'\\)\\)\")",
+      "Bash(curl:*)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} registros'\\); print\\(d[:3]\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} municípios. Ex: {d[:5]}'\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} registros para PA. Ex: {d[:3]}'\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} municípios. Primeiros: {d[:5]}'\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} registros PA. Ex: {d[:3]}'\\)\")",
+      "Bash(python generate_static.py)"
+    ]
+  }
+}
