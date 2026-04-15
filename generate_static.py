@@ -225,7 +225,8 @@ def _injetar_dados(
 ) -> str:
     """Substitui chamadas de API por dados embutidos e referências a arquivos estáticos."""
 
-    # 1. Bloco de dados embutidos (inserido antes de </body>)
+    # 1. Bloco de dados embutidos — inserido ANTES do <script> principal
+    #    para que as variáveis estejam definidas quando init() for chamado.
     data_block = (
         "<script>\n"
         f"window.__ANUAL__     = {json.dumps(anual_lista, ensure_ascii=False)};\n"
@@ -235,7 +236,9 @@ def _injetar_dados(
         f"window.__MUN_IDX__   = {json.dumps(mun_idx, ensure_ascii=False)};\n"
         "</script>\n"
     )
-    html = html.replace("</body>", data_block + "</body>")
+    # Ancora no primeiro caractere único do script principal
+    SCRIPT_ANCHOR = "<script>\n// ── Config"
+    html = html.replace(SCRIPT_ANCHOR, data_block + SCRIPT_ANCHOR, 1)
 
     # 2. init(): substitui Promise.all com os três fetch de estado
     html = html.replace(
