@@ -100,5 +100,36 @@ def mensal():
     return jsonify(result)
 
 
+@app.route('/api/geral-mensal-rs')
+def geral_mensal_rs():
+    tipo = request.args.get('tipo', '').strip().lower() or None
+    conn = get_conn()
+    cur = conn.cursor()
+    if tipo:
+        cur.execute(
+            """
+            SELECT ano, mes, tipo_crime, quantidade
+            FROM geral_por_mes_rs
+            WHERE tipo_crime = %s
+            ORDER BY ano, mes
+            """,
+            (tipo,),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT ano, mes, tipo_crime, quantidade
+            FROM geral_por_mes_rs
+            ORDER BY ano, mes, tipo_crime
+            """
+        )
+    result = [
+        {'ano': r[0], 'mes': r[1], 'tipo': r[2], 'total': r[3]}
+        for r in cur.fetchall()
+    ]
+    cur.close(); conn.close()
+    return jsonify(result)
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

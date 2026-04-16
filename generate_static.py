@@ -12,10 +12,12 @@ Uso:
 """
 
 from __future__ import annotations
+import csv
 import json
 import os
 import re
 import shutil
+import unicodedata
 from collections import defaultdict
 from pathlib import Path
 
@@ -27,6 +29,10 @@ ARCHIVES_DIR = ROOT / "archives"
 TEMPLATE_HTML = ROOT / "artefacts" / "app" / "static" / "index.html"
 DOCS_DIR = ROOT / "docs"
 DATA_DIR = DOCS_DIR / "data"
+CSV_GERAL_2012_2017 = (
+    ARCHIVES_DIR
+    / "12160259-site-violencia-contra-as-mulheres-2012-a-2017-atualizado-em-09-janeiro-2018-publicacao - Geral.csv"
+)
 
 # ── Mapeamento de abas ────────────────────────────────────────────────────────
 ABA_MAP = {
@@ -45,6 +51,29 @@ MESES = {
     "mai": 5, "jun": 6, "jul": 7, "ago": 8,
     "set": 9, "out": 10, "nov": 11, "dez": 12,
 }
+ARQUIVO_2012_2017_TOKEN = "2012-a-2017"
+MESES_LONGOS = {
+    "janeiro": 1,
+    "fevereiro": 2,
+    "marco": 3,
+    "abril": 4,
+    "maio": 5,
+    "junho": 6,
+    "julho": 7,
+    "agosto": 8,
+    "setembro": 9,
+    "outubro": 10,
+    "novembro": 11,
+    "dezembro": 12,
+}
+TIPO_MAP_CSV = {
+    "femicidio tentado": "feminicidio_tentado",
+    "femicidio consumado": "feminicidio_consumado",
+    "ameaca": "ameaca",
+    "estupro": "estupro",
+    "lesao corporal": "lesao_corporal",
+    "geral": "geral",
+}
 
 
 # ── Leitura dos xlsx (mesma lógica de load_data.py, sem PostgreSQL) ───────────
@@ -52,6 +81,26 @@ MESES = {
 def _extrair_ano(filename: str) -> int | None:
     m = re.search(r"(20\d{2})", filename)
     return int(m.group(1)) if m else None
+
+
+def _arquivo_duplicado_nome(filename: str) -> bool:
+    """Detecta cópias automáticas do Windows, ex.: 'arquivo (1).xlsx'."""
+    return re.search(r"\(\d+\)\.xlsx$", filename.lower()) is not None
+
+
+def _normalizar_txt(valor: str | None) -> str:
+    if not valor:
+        return ""
+    base = unicodedata.normalize("NFKD", valor.strip().lower())
+    return "".join(ch for ch in base if not unicodedata.combining(ch))
+
+
+def _numero_ptbr(valor: str) -> int:
+    v = valor.strip()
+    if not v or v == "-":
+        return 0
+    v = v.replace(".", "").replace(",", ".")
+    return int(float(v))
 
 
 def _cab_mensal(headers) -> dict[int, int] | None:
@@ -123,7 +172,10 @@ def ler_todos_xlsx(archives_dir: Path) -> dict[tuple, int]:
     Retorna um dict {(municipio, tipo_crime, ano, mes): quantidade}
     com deduplicação via primeira-escrita-ganha (igual ao ON CONFLICT DO NOTHING).
     """
-    xlsx_files = sorted(f for f in os.listdir(archives_dir) if f.endswith(".xlsx"))
+    xlsx_files = sorted(
+        f for f in os.listdir(archives_dir)
+        if f.endswith(".xlsx") and not _arquivo_duplicado_nome(f)
+    )
     print(f"Arquivos xlsx encontrados: {len(xlsx_files)}")
 
     unique: dict[tuple, int] = {}
@@ -137,6 +189,10 @@ def ler_todos_xlsx(archives_dir: Path) -> dict[tuple, int]:
         for sheet_name in wb.sheetnames:
             tipo_crime = ABA_MAP.get(sheet_name.strip().lower())
             if tipo_crime is None:
+                continue
+            if tipo_crime == "geral" and ARQUIVO_2012_2017_TOKEN in filename.lower():
+                # A aba Geral desse arquivo usa layout mensal do ano corrente e
+                # não representa a série anual 2012-2017 por município.
                 continue
             ws = wb[sheet_name]
             for rec in _ler_aba(ws, tipo_crime, ano_arquivo):
@@ -213,12 +269,96 @@ def agregar_por_municipio(data: dict[tuple, int]) -> dict[str, dict]:
     return municipios
 
 
+def carregar_mensal_geral_2012_2017(csv_path: Path) -> list[dict]:
+    """
+    Carrega mensal estadual do CSV agregado (2012-2017):
+    [{"ano": ..., "mes": ..., "tipo": ..., "total": ...}, ...]
+    """
+    if not csv_path.exists():
+        print(f"[warn] CSV agregado 2012-2017 nao encontrado: {csv_path.name}")
+        return []
+
+    registros: list[dict] = []
+    ano_atual: int | None = None
+    idx_mes: dict[int, int] = {}
+
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.reader(f)
+        for raw in reader:
+            row = [c.strip() for c in raw]
+            joined = " ".join(row)
+
+            m = re.search(r"Ano de\s+(20\d{2})", joined)
+            if m:
+                ano_atual = int(m.group(1))
+                idx_mes = {}
+                continue
+
+            if ano_atual is None:
+                continue
+
+            col_nome = row[1] if len(row) > 1 else ""
+            nome_norm = _normalizar_txt(col_nome)
+
+            if nome_norm == "municipio":
+                for i, cell in enumerate(row):
+                    mes = MESES_LONGOS.get(_normalizar_txt(cell))
+                    if mes:
+                        idx_mes[i] = mes
+                continue
+
+            tipo = TIPO_MAP_CSV.get(nome_norm)
+            if not tipo or not idx_mes:
+                continue
+
+            for col_idx, mes in idx_mes.items():
+                if col_idx >= len(row):
+                    continue
+                qtd = _numero_ptbr(row[col_idx])
+                registros.append({
+                    "ano": ano_atual,
+                    "mes": mes,
+                    "tipo": tipo,
+                    "total": qtd,
+                })
+
+    return registros
+
+
+def agregar_mensal_longo_rs(
+    data: dict[tuple, int],
+    csv_2012_2017: list[dict],
+) -> list[dict]:
+    """
+    Série mensal contínua do RS:
+    - 2012-2017: CSV agregado estadual
+    - 2018+: soma de municípios vindos dos xlsx
+    """
+    mensal_2018: dict[tuple, int] = defaultdict(int)
+    for (mun, tipo, ano, mes), qtd in data.items():
+        if mes is None or ano < 2018:
+            continue
+        mensal_2018[(ano, mes, tipo)] += qtd
+
+    registros = list(csv_2012_2017)
+    for (ano, mes, tipo), total in sorted(mensal_2018.items(), key=lambda x: (x[0][0], x[0][1], x[0][2])):
+        registros.append({
+            "ano": ano,
+            "mes": mes,
+            "tipo": tipo,
+            "total": total,
+        })
+
+    return registros
+
+
 # ── Modificação do HTML ───────────────────────────────────────────────────────
 
 def _injetar_dados(
     html: str,
     anual_lista: list,
     mensal_por_ano: dict,
+    mensal_longo_rs: list,
     anos: list,
     municipios_sorted: list,
     mun_idx: dict,
@@ -233,6 +373,7 @@ def _injetar_dados(
         f"window.__ANOS__      = {json.dumps(anos, ensure_ascii=False)};\n"
         f"window.__MUNICIPIOS__= {json.dumps(municipios_sorted, ensure_ascii=False)};\n"
         f"window.__MENSAL__    = {json.dumps(mensal_por_ano, ensure_ascii=False)};\n"
+        f"window.__MENSAL_LONGO_RS__ = {json.dumps(mensal_longo_rs, ensure_ascii=False)};\n"
         f"window.__MUN_IDX__   = {json.dumps(mun_idx, ensure_ascii=False)};\n"
         "</script>\n"
     )
@@ -304,6 +445,12 @@ def _injetar_dados(
         "  }",
     )
 
+    # 8. novo gráfico mensal contínuo do RS
+    html = html.replace(
+        "  mensalLongoData = await fetch('/api/geral-mensal-rs').then(r => r.json());",
+        "  mensalLongoData = window.__MENSAL_LONGO_RS__ || [];",
+    )
+
     return html
 
 
@@ -323,6 +470,8 @@ def main():
     # 2. Agrega
     print("\nAgregando dados do estado…")
     anual_lista, mensal_por_ano = agregar_estado(data)
+    csv_mensal_2012_2017 = carregar_mensal_geral_2012_2017(CSV_GERAL_2012_2017)
+    mensal_longo_rs = agregar_mensal_longo_rs(data, csv_mensal_2012_2017)
 
     print("Agregando dados por município…")
     municipios_data = agregar_por_municipio(data)
@@ -345,7 +494,15 @@ def main():
     # 4. Gera index.html
     print("Gerando docs/index.html…")
     template = TEMPLATE_HTML.read_text(encoding="utf-8")
-    html = _injetar_dados(template, anual_lista, mensal_por_ano, anos, municipios_sorted, mun_idx)
+    html = _injetar_dados(
+        template,
+        anual_lista,
+        mensal_por_ano,
+        mensal_longo_rs,
+        anos,
+        municipios_sorted,
+        mun_idx,
+    )
     (DOCS_DIR / "index.html").write_text(html, encoding="utf-8")
 
     # 5. .nojekyll (desativa Jekyll no GitHub Pages)

@@ -11,6 +11,7 @@ Uso:
 
 import os
 import re
+from collections import defaultdict
 import openpyxl
 import psycopg2
 from psycopg2.extras import execute_values
@@ -24,7 +25,7 @@ DB = dict(
     password="postgres",
 )
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..")  # pasta raiz com os .xlsx
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "archives")  # pasta com os .xlsx
 
 # Mapeamento: nome da aba → chave normalizada
 ABA_MAP = {
@@ -41,6 +42,8 @@ ABA_MAP = {
 MESES = {"jan": 1, "fev": 2, "mar": 3, "abr": 4, "mai": 5, "jun": 6,
          "jul": 7, "ago": 8, "set": 9, "out": 10, "nov": 11, "dez": 12}
 
+ARQUIVO_2012_2017_TOKEN = "2012-a-2017"
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def extrair_ano_do_nome(filename: str) -> int | None:
@@ -51,6 +54,11 @@ def extrair_ano_do_nome(filename: str) -> int | None:
 
 def normalizar_aba(nome: str) -> str | None:
     return ABA_MAP.get(nome.strip().lower())
+
+
+def arquivo_duplicado_nome(filename: str) -> bool:
+    """Detecta cópias do Windows, ex.: 'arquivo (1).xlsx'."""
+    return re.search(r"\(\d+\)\.xlsx$", filename.lower()) is not None
 
 
 def cabecalho_mensal(headers) -> dict[int, int] | None:
@@ -134,11 +142,28 @@ def ler_aba(ws, tipo_crime: str, ano_arquivo: int) -> list[tuple]:
     return records
 
 
+def avisar_cobertura_anos(records: list[tuple], anos_esperados: set[int]) -> None:
+    """
+    Emite aviso quando um tipo não possui todos os anos esperados.
+    """
+    if not anos_esperados:
+        return
+    anos_por_tipo: dict[str, set[int]] = defaultdict(set)
+    for _, tipo, ano, mes, _ in records:
+        if mes is None:
+            anos_por_tipo[tipo].add(int(ano))
+    for tipo in sorted(anos_por_tipo):
+        faltantes = sorted(anos_esperados - anos_por_tipo[tipo])
+        if faltantes:
+            print(f"[warn] cobertura incompleta em {tipo}: faltam anos {faltantes}")
+
+
 # ── ETL principal ─────────────────────────────────────────────────────────────
 
 def main():
     xlsx_files = sorted(
-        f for f in os.listdir(DATA_DIR) if f.endswith(".xlsx")
+        f for f in os.listdir(DATA_DIR)
+        if f.endswith(".xlsx") and not arquivo_duplicado_nome(f)
     )
     print(f"Arquivos encontrados: {len(xlsx_files)}")
 
@@ -147,7 +172,7 @@ def main():
     for filename in xlsx_files:
         filepath = os.path.join(DATA_DIR, filename)
         ano_arquivo = extrair_ano_do_nome(filename)
-        print(f"\n→ {filename}  (ano base: {ano_arquivo})")
+        print(f"\n-> {filename}  (ano base: {ano_arquivo})")
 
         wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
 
@@ -156,21 +181,25 @@ def main():
             if tipo_crime is None:
                 print(f"   [skip] aba ignorada: {sheet_name!r}")
                 continue
+            if tipo_crime == "geral" and ARQUIVO_2012_2017_TOKEN in filename.lower():
+                print("   [skip] aba 'Geral' ignorada no arquivo 2012-2017 (layout incompatível)")
+                continue
 
             ws = wb[sheet_name]
             records = ler_aba(ws, tipo_crime, ano_arquivo)
-            print(f"   {sheet_name!r} → {tipo_crime}: {len(records)} registros")
+            print(f"   {sheet_name!r} -> {tipo_crime}: {len(records)} registros")
             all_records.extend(records)
 
         wb.close()
 
     print(f"\nTotal de registros lidos: {len(all_records):,}")
+    avisar_cobertura_anos(all_records, set(range(2012, 2018)))
 
     # ── Inserir no PostgreSQL ──────────────────────────────────────────────────
     conn = psycopg2.connect(**DB)
     cur = conn.cursor()
 
-    print("Inserindo no banco (ON CONFLICT DO NOTHING)…")
+    print("Inserindo no banco (ON CONFLICT DO NOTHING)...")
 
     BATCH = 5000
     inserted = 0
@@ -187,7 +216,7 @@ def main():
         )
         inserted += cur.rowcount
         conn.commit()
-        print(f"  {min(i + BATCH, len(all_records)):,} / {len(all_records):,} processados…")
+        print(f"  {min(i + BATCH, len(all_records)):,} / {len(all_records):,} processados...")
 
     cur.close()
     conn.close()

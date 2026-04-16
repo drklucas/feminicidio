@@ -10,7 +10,7 @@ no Rio Grande do Sul, disponibilizados pela Secretaria de Segurança Pública do
 ### Origem
 
 Os arquivos foram baixados do portal de dados da SSP-RS e cobrem o período de **2012 a 2026**.
-São 10 planilhas `.xlsx` em `archives/`:
+São 10 planilhas `.xlsx` em `archives/` e 1 CSV agregado mensal do estado para 2012–2017:
 
 | Arquivo | Período | Granularidade |
 |---|---|---|
@@ -24,6 +24,7 @@ São 10 planilhas `.xlsx` em `archives/`:
 | `...2024...xlsx` | 2024 | Mensal por município |
 | `...2025...xlsx` | 2025 | Mensal por município |
 | `...2026...xlsx` | 2026 | Mensal por município |
+| `...2012-a-2017... - Geral.csv` | 2012–2017 | Mensal agregado do RS |
 
 ### Estrutura de cada planilha
 
@@ -107,12 +108,15 @@ feminicidio/
 
 ### Como funciona
 
-O script `generate_static.py` lê diretamente os arquivos `.xlsx` de `archives/`,
+O script `generate_static.py` lê os `.xlsx` de `archives/` e também o CSV agregado
+`...2012-a-2017... - Geral.csv`,
 compila todos os dados em memória e gera:
 
 - **`docs/index.html`** — mesmo painel interativo, mas com os dados estaduais
   (série anual e mensal de todo o RS) **embutidos como variáveis JavaScript**,
   eliminando a necessidade de servidor.
+- Inclui também a série **mensal contínua do RS (2012+)** para o novo gráfico
+  (2012–2017 vindo do CSV agregado e 2018+ por soma dos municípios).
 - **`docs/data/{id}.json`** — um arquivo por município (~500 arquivos),
   carregados sob demanda quando o usuário pesquisa uma cidade.
 
@@ -154,7 +158,7 @@ https://<seu-usuario>.github.io/<nome-do-repo>/
 
 Para publicar dados novos basta:
 
-1. Adicionar ou substituir arquivos `.xlsx` em `archives/`.
+1. Adicionar ou substituir arquivos `.xlsx` em `archives/` (e o CSV agregado, se houver atualização para 2012–2017).
 2. Fazer commit e push para `main`.
 3. O workflow roda automaticamente e republica o site.
 
@@ -239,8 +243,11 @@ http://localhost:8080
 - A coluna `Total` das planilhas é ignorada no ETL (calculável via `SUM`).
 - A aba `Fórmulas - Demais indicadores` presente em alguns arquivos é ignorada.
 - Nomes de municípios são normalizados para maiúsculas no momento da carga.
-- A versão estática não possui dados mensais para 2012–2017 (o arquivo original
-  não contém granularidade mensal nesses anos).
+- A versão estática possui série mensal para 2012–2017 no nível estadual via
+  CSV agregado (`...2012-a-2017... - Geral.csv`).
+- No ETL SQL, a planilha 2012–2017 continua sendo anual por município (`mes = NULL`);
+  para série mensal estadual no banco foi criada a tabela `geral_por_mes_rs`
+  pelo script `artefacts/build_geral_por_mes_rs.py`.
 
 ---
 
