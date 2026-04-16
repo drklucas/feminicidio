@@ -232,6 +232,40 @@
         <div class="chart-wrap"><canvas id="chartMensalLongo"></canvas></div>
       </div>
 
+      <div class="card">
+        <div class="card-title">Composição Anual (Barras Empilhadas)</div>
+        <div class="card-sub">Participação de cada tipo de crime no total anual do estado</div>
+        <div class="chart-wrap"><canvas id="chartBarrasEmpilhadas"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Distribuição por Tipo (Donut)</div>
+        <div class="card-sub">Distribuição proporcional por tipo no período selecionado</div>
+        <div class="controls">
+          <label for="selAnoDonut">Ano:</label>
+          <select id="selAnoDonut"></select>
+        </div>
+        <div class="chart-wrap"><canvas id="chartDonutTipo"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Perfil Mensal por Tipo (Radar)</div>
+        <div class="card-sub">Comparação de sazonalidade entre tipos de crime</div>
+        <div class="chart-wrap"><canvas id="chartRadarMensal"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Ranking de Municípios</div>
+        <div class="card-sub">Top 20 municípios por ocorrências do tipo e ano selecionados</div>
+        <div class="controls">
+          <label for="selAnoRanking">Ano:</label>
+          <select id="selAnoRanking"></select>
+          <label for="selTipoRanking">Tipo:</label>
+          <select id="selTipoRanking"></select>
+        </div>
+        <div class="chart-wrap"><canvas id="chartRankingMunicipios"></canvas></div>
+      </div>
+
     </div>
   </section>
 
@@ -270,6 +304,12 @@
         </div>
         <div class="chips" id="chips-cidade-mensal"></div>
         <div class="chart-wrap"><canvas id="chartCidadeMensal"></canvas></div>
+      </div>
+
+      <div class="card" id="cardCidadeBarras" style="display:none">
+        <div class="card-title">Comparativo por Ano (Barras) — <span id="lblCidadeBarras"></span></div>
+        <div class="card-sub">Comparação entre tipos de crime por ano no município</div>
+        <div class="chart-wrap"><canvas id="chartCidadeBarras"></canvas></div>
       </div>
 
     </div>
@@ -342,6 +382,11 @@ let visMensal = Object.fromEntries(TIPOS.map(t => [t, t !== 'geral']));
 let chartAnual  = null;
 let chartMensal = null;
 let chartMensalLongo = null;
+let chartBarrasEmpilhadas = null;
+let chartDonutTipo = null;
+let chartRadarMensal = null;
+let chartRankingMunicipios = null;
+let rankingData = {};
 let mensalLongoData = [];
 
 // estado da aba Por Cidade
@@ -352,6 +397,7 @@ let visCidadeAnual  = Object.fromEntries(TIPOS.map(t => [t, t !== 'geral']));
 let visCidadeMensal = Object.fromEntries(TIPOS.map(t => [t, t !== 'geral']));
 let chartCidadeAnual  = null;
 let chartCidadeMensal = null;
+let chartCidadeBarras = null;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function pivot(rows, rowKey, colKey, valKey) {
@@ -503,6 +549,154 @@ function renderChartMensalLongo() {
   });
 }
 
+// ── Novos gráficos (estado) ────────────────────────────────────────────────────
+function renderChartBarrasEmpilhadas() {
+  const tipos = TIPOS.filter(t => t !== 'geral');
+  const anos = [...new Set(anualData.map(d => d.ano))].sort();
+  const byAno = pivot(anualData.filter(d => d.tipo !== 'geral'), 'ano', 'tipo', 'total');
+
+  if (chartBarrasEmpilhadas) chartBarrasEmpilhadas.destroy();
+  chartBarrasEmpilhadas = new Chart(document.getElementById('chartBarrasEmpilhadas'), {
+    type: 'bar',
+    data: {
+      labels: anos,
+      datasets: tipos.map(tipo => ({
+        label: LABEL[tipo],
+        data: anos.map(ano => byAno[ano]?.[tipo] ?? 0),
+        backgroundColor: COLOR[tipo] + 'bb',
+        borderColor: COLOR[tipo],
+        borderWidth: 1,
+      })),
+    },
+    options: {
+      ...baseOptions,
+      scales: {
+        x: { ...baseOptions.scales.x, stacked: true },
+        y: { ...baseOptions.scales.y, stacked: true },
+      },
+    },
+  });
+}
+
+function renderChartDonut() {
+  const selAnoDonut = document.getElementById('selAnoDonut');
+  const anoSelecionado = selAnoDonut.value;
+  const tipos = TIPOS.filter(t => t !== 'geral');
+  const rows = anoSelecionado === 'all'
+    ? anualData.filter(d => d.tipo !== 'geral')
+    : anualData.filter(d => d.tipo !== 'geral' && String(d.ano) === anoSelecionado);
+
+  const totalPorTipo = Object.fromEntries(tipos.map(t => [t, 0]));
+  for (const r of rows) totalPorTipo[r.tipo] += r.total ?? 0;
+
+  if (chartDonutTipo) chartDonutTipo.destroy();
+  chartDonutTipo = new Chart(document.getElementById('chartDonutTipo'), {
+    type: 'doughnut',
+    data: {
+      labels: tipos.map(t => LABEL[t]),
+      datasets: [{
+        data: tipos.map(t => totalPorTipo[t]),
+        backgroundColor: tipos.map(t => COLOR[t] + 'cc'),
+        borderColor: tipos.map(t => COLOR[t]),
+        borderWidth: 1,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}`,
+          },
+        },
+      },
+    },
+  });
+}
+
+function renderChartRadar() {
+  const tipos = TIPOS.filter(t => t !== 'geral');
+  const meses = [...new Set(mensalData.map(d => d.mes))].sort((a, b) => a - b);
+  const byMes = pivot(mensalData.filter(d => d.tipo !== 'geral'), 'mes', 'tipo', 'total');
+
+  if (chartRadarMensal) chartRadarMensal.destroy();
+  chartRadarMensal = new Chart(document.getElementById('chartRadarMensal'), {
+    type: 'radar',
+    data: {
+      labels: meses.map(m => MESES_LABEL[m - 1]),
+      datasets: tipos.map(tipo => ({
+        label: LABEL[tipo],
+        data: meses.map(m => byMes[m]?.[tipo] ?? 0),
+        borderColor: COLOR[tipo],
+        backgroundColor: COLOR[tipo] + '22',
+        borderWidth: 2,
+        pointRadius: 2,
+      })),
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}`,
+          },
+        },
+      },
+      scales: {
+        r: {
+          beginAtZero: true,
+          angleLines: { color: '#efefef' },
+          grid: { color: '#efefef' },
+          pointLabels: { font: { size: 11 } },
+          ticks: { backdropColor: 'transparent' },
+        },
+      },
+    },
+  });
+}
+
+function renderChartRanking() {
+  const selAno = document.getElementById('selAnoRanking');
+  const selTipo = document.getElementById('selTipoRanking');
+  const ano = selAno.value;
+  const tipo = selTipo.value;
+  const rows = rankingData?.[ano]?.[tipo] || [];
+
+  if (chartRankingMunicipios) chartRankingMunicipios.destroy();
+  chartRankingMunicipios = new Chart(document.getElementById('chartRankingMunicipios'), {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.municipio),
+      datasets: [{
+        label: `${LABEL[tipo]} (${ano})`,
+        data: rows.map(r => r.total ?? 0),
+        backgroundColor: COLOR[tipo] + 'bb',
+        borderColor: COLOR[tipo],
+        borderWidth: 1,
+      }],
+    },
+    options: {
+      ...baseOptions,
+      indexAxis: 'y',
+      plugins: {
+        ...baseOptions.plugins,
+        legend: { display: true, position: 'bottom' },
+      },
+      scales: {
+        x: baseOptions.scales.y,
+        y: {
+          grid: { display: false },
+          ticks: { autoSkip: false, font: { size: 10 } },
+        },
+      },
+    },
+  });
+}
+
 // ── Gráfico Anual (cidade) ────────────────────────────────────────────────────
 function renderChartCidadeAnual() {
   const anos  = [...new Set(anualCidadeData.map(d => d.ano))].sort();
@@ -540,6 +734,34 @@ function renderChartCidadeMensal() {
   });
 }
 
+function renderChartCidadeBarras() {
+  const tipos = TIPOS.filter(t => t !== 'geral');
+  const anos = [...new Set(anualCidadeData.map(d => d.ano))].sort();
+  const byAno = pivot(anualCidadeData.filter(d => d.tipo !== 'geral'), 'ano', 'tipo', 'total');
+
+  if (chartCidadeBarras) chartCidadeBarras.destroy();
+  chartCidadeBarras = new Chart(document.getElementById('chartCidadeBarras'), {
+    type: 'bar',
+    data: {
+      labels: anos,
+      datasets: tipos.map(tipo => ({
+        label: LABEL[tipo],
+        data: anos.map(ano => byAno[ano]?.[tipo] ?? 0),
+        backgroundColor: COLOR[tipo] + 'aa',
+        borderColor: COLOR[tipo],
+        borderWidth: 1,
+      })),
+    },
+    options: {
+      ...baseOptions,
+      plugins: {
+        ...baseOptions.plugins,
+        legend: { display: true, position: 'bottom' },
+      },
+    },
+  });
+}
+
 // ── Buscar cidade ─────────────────────────────────────────────────────────────
 async function buscarCidade() {
   const input = document.getElementById('inputCidade');
@@ -556,6 +778,7 @@ async function buscarCidade() {
     document.getElementById('cidadePlaceholder').style.display = 'flex';
     document.getElementById('cardCidadeAnual').style.display  = 'none';
     document.getElementById('cardCidadeMensal').style.display = 'none';
+    document.getElementById('cardCidadeBarras').style.display = 'none';
     return;
   }
 
@@ -574,14 +797,17 @@ async function buscarCidade() {
   // Atualiza labels
   document.getElementById('lblCidadeAnual').textContent  = nome;
   document.getElementById('lblCidadeMensal').textContent = nome;
+  document.getElementById('lblCidadeBarras').textContent = nome;
 
   // Oculta placeholder, exibe cards
   document.getElementById('cidadePlaceholder').style.display  = 'none';
   document.getElementById('cardCidadeAnual').style.display    = '';
   document.getElementById('cardCidadeMensal').style.display   = '';
+  document.getElementById('cardCidadeBarras').style.display   = '';
 
   renderChartCidadeAnual();
   renderChartCidadeMensal();
+  renderChartCidadeBarras();
 }
 
 document.getElementById('btnBuscarCidade').addEventListener('click', buscarCidade);
@@ -662,7 +888,7 @@ function renderTabelaMensal() {
 // ── Seletores de ano (tabelas e gráfico mensal) ───────────────────────────────
 function populateSelects(anos) {
   const latest = anos[anos.length - 1];
-  for (const id of ['selAno', 'selAnoTab']) {
+  for (const id of ['selAno', 'selAnoTab', 'selAnoRanking']) {
     const sel = document.getElementById(id);
     sel.innerHTML = '';
     for (const a of [...anos].reverse()) {
@@ -673,16 +899,29 @@ function populateSelects(anos) {
       sel.appendChild(opt);
     }
   }
+  const selAnoDonut = document.getElementById('selAnoDonut');
+  selAnoDonut.innerHTML = '<option value="all" selected>Todos os anos</option>';
+  for (const a of [...anos].reverse()) {
+    const opt = document.createElement('option');
+    opt.value = a;
+    opt.textContent = a;
+    selAnoDonut.appendChild(opt);
+  }
 
   document.getElementById('selAno').addEventListener('change', async e => {
     mensalData = await fetch(`/api/mensal?ano=${e.target.value}`).then(r => r.json());
     renderChartMensal();
+    renderChartRadar();
   });
 
   document.getElementById('selAnoTab').addEventListener('change', async e => {
     mensalData = await fetch(`/api/mensal?ano=${e.target.value}`).then(r => r.json());
     renderTabelaMensal();
   });
+
+  document.getElementById('selAnoDonut').addEventListener('change', renderChartDonut);
+  document.getElementById('selAnoRanking').addEventListener('change', renderChartRanking);
+  document.getElementById('selTipoRanking').addEventListener('change', renderChartRanking);
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -705,6 +944,7 @@ async function init() {
 
   anualData       = ad;
   anosDisponiveis = anos;
+  rankingData     = window.__RANKING__ || {};
 
   // Preenche datalist de municípios
   const dl = document.getElementById('listaCidades');
@@ -715,6 +955,7 @@ async function init() {
   }
 
   renderChartAnual();
+  renderChartBarrasEmpilhadas();
   renderTabelaAnual();
 
   if (anosDisponiveis.length) {
@@ -722,6 +963,8 @@ async function init() {
     const latestAno = anosDisponiveis[anosDisponiveis.length - 1];
     mensalData = await fetch(`/api/mensal?ano=${latestAno}`).then(r => r.json());
     renderChartMensal();
+    renderChartRadar();
+    renderChartDonut();
     renderTabelaMensal();
   }
 
@@ -737,6 +980,16 @@ async function init() {
   }
   selTipoMensalLongo.addEventListener('change', renderChartMensalLongo);
   renderChartMensalLongo();
+
+  const selTipoRanking = document.getElementById('selTipoRanking');
+  selTipoRanking.innerHTML = '';
+  for (const tipo of TIPOS.filter(t => t !== 'geral')) {
+    const opt = document.createElement('option');
+    opt.value = tipo;
+    opt.textContent = LABEL[tipo];
+    selTipoRanking.appendChild(opt);
+  }
+  renderChartRanking();
 }
 
 init();

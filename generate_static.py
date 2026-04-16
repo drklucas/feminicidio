@@ -269,6 +269,30 @@ def agregar_por_municipio(data: dict[tuple, int]) -> dict[str, dict]:
     return municipios
 
 
+def agregar_ranking_municipios(data: dict[tuple, int], top_n: int = 20) -> dict[str, dict[str, list[dict]]]:
+    """
+    Retorna ranking anual por município para cada tipo:
+    { "2024": { "estupro": [{"municipio": "...", "total": 123}, ...], ... }, ... }
+    """
+    ranking_base: dict[tuple, int] = defaultdict(int)
+    for (mun, tipo, ano, _mes), qtd in data.items():
+        ranking_base[(ano, tipo, mun)] += qtd
+
+    agrupado: dict[tuple, list[tuple[str, int]]] = defaultdict(list)
+    for (ano, tipo, mun), total in ranking_base.items():
+        agrupado[(ano, tipo)].append((mun, total))
+
+    ranking: dict[str, dict[str, list[dict]]] = {}
+    for (ano, tipo), items in agrupado.items():
+        top_items = sorted(items, key=lambda x: (-x[1], x[0]))[:top_n]
+        ranking.setdefault(str(ano), {})[tipo] = [
+            {"municipio": mun, "total": total}
+            for mun, total in top_items
+        ]
+
+    return ranking
+
+
 def carregar_mensal_geral_2012_2017(csv_path: Path) -> list[dict]:
     """
     Carrega mensal estadual do CSV agregado (2012-2017):
@@ -359,6 +383,7 @@ def _injetar_dados(
     anual_lista: list,
     mensal_por_ano: dict,
     mensal_longo_rs: list,
+    ranking_municipios: dict,
     anos: list,
     municipios_sorted: list,
     mun_idx: dict,
@@ -374,6 +399,7 @@ def _injetar_dados(
         f"window.__MUNICIPIOS__= {json.dumps(municipios_sorted, ensure_ascii=False)};\n"
         f"window.__MENSAL__    = {json.dumps(mensal_por_ano, ensure_ascii=False)};\n"
         f"window.__MENSAL_LONGO_RS__ = {json.dumps(mensal_longo_rs, ensure_ascii=False)};\n"
+        f"window.__RANKING__   = {json.dumps(ranking_municipios, ensure_ascii=False)};\n"
         f"window.__MUN_IDX__   = {json.dumps(mun_idx, ensure_ascii=False)};\n"
         "</script>\n"
     )
@@ -403,18 +429,14 @@ def _injetar_dados(
 
     # 4. selAno listener (gráfico mensal estado)
     html = html.replace(
-        "    mensalData = await fetch(`/api/mensal?ano=${e.target.value}`).then(r => r.json());\n"
-        "    renderChartMensal();",
-        "    mensalData = window.__MENSAL__[e.target.value] || [];\n"
-        "    renderChartMensal();",
+        "    mensalData = await fetch(`/api/mensal?ano=${e.target.value}`).then(r => r.json());",
+        "    mensalData = window.__MENSAL__[e.target.value] || [];",
     )
 
     # 5. selAnoTab listener (tabela mensal estado)
     html = html.replace(
-        "    mensalData = await fetch(`/api/mensal?ano=${e.target.value}`).then(r => r.json());\n"
-        "    renderTabelaMensal();",
-        "    mensalData = window.__MENSAL__[e.target.value] || [];\n"
-        "    renderTabelaMensal();",
+        "    mensalData = await fetch(`/api/mensal?ano=${e.target.value}`).then(r => r.json());",
+        "    mensalData = window.__MENSAL__[e.target.value] || [];",
     )
 
     # 6. buscarCidade(): substitui os dois fetch (anual e mensal por município)
@@ -472,6 +494,7 @@ def main():
     anual_lista, mensal_por_ano = agregar_estado(data)
     csv_mensal_2012_2017 = carregar_mensal_geral_2012_2017(CSV_GERAL_2012_2017)
     mensal_longo_rs = agregar_mensal_longo_rs(data, csv_mensal_2012_2017)
+    ranking_municipios = agregar_ranking_municipios(data, top_n=20)
 
     print("Agregando dados por município…")
     municipios_data = agregar_por_municipio(data)
@@ -499,6 +522,7 @@ def main():
         anual_lista,
         mensal_por_ano,
         mensal_longo_rs,
+        ranking_municipios,
         anos,
         municipios_sorted,
         mun_idx,
