@@ -627,7 +627,8 @@ function renderChartDonut() {
 
 function renderChartRadar() {
   const tipos = TIPOS.filter(t => t !== 'geral');
-  const meses = [...new Set(mensalData.map(d => d.mes))].sort((a, b) => a - b);
+  // Sempre exibe os 12 meses para evitar leitura parcial em anos ainda em andamento.
+  const meses = Array.from({ length: 12 }, (_, i) => i + 1);
   const byMes = pivot(mensalData.filter(d => d.tipo !== 'geral'), 'mes', 'tipo', 'total');
 
   if (chartRadarMensal) chartRadarMensal.destroy();
